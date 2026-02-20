@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Familie Financiën Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0e17;--card:#141824;--border:#1f2842;--border2:#2a3450;--gold:#e6b84a;--green:#3ecf8e;--red:#e05252;--text:#e5e9f2;--dim:#8892a8;--faint:#4a5568;}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Inter,sans-serif;background:var(--bg);color:var(--text);font-size:13px;line-height:1.5}
+
+.loading{position:fixed;inset:0;background:rgba(10,14,23,.95);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px}
+.loading.hidden{display:none}
+.spinner{width:48px;height:48px;border:4px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.hdr{display:flex;justify-content:space-between;padding:20px 32px;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:200;background:rgba(10,14,23,.95);backdrop-filter:blur(12px)}
+.hdr-title{font-family:'Playfair Display',serif;font-size:26px;color:var(--gold)}
+.hdr-sub{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-top:4px}
+.hdr-right{display:flex;gap:10px;align-items:center}
+
+.tab-group{display:flex;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.tab{padding:7px 16px;font-size:12px;font-weight:500;cursor:pointer;border:none;background:none;color:var(--dim);transition:.15s}
+.tab.active{background:var(--gold);color:#0a0e17;font-weight:600}
+
+select{background:var(--card);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:500}
+
+.btn{padding:8px 16px;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:.2s}
+.btn-outline{background:transparent;border:1px solid var(--border2);color:var(--dim)}
+.btn-outline:hover{border-color:var(--gold);color:var(--text)}
+
+.main{padding:24px 32px;max-width:1800px;margin:0 auto}
+
+.view{display:none}
+.view.active{display:block}
+
+.hero{background:linear-gradient(135deg,rgba(230,184,74,.08),rgba(79,156,249,.05));border:1px solid rgba(230,184,74,.2);border-radius:14px;padding:32px;margin-bottom:24px}
+.hero-title{font-family:'Playfair Display',serif;font-size:32px;color:var(--gold);margin-bottom:24px}
+
+.compare-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.compare-card{background:rgba(20,24,36,.6);border:1px solid var(--border);border-radius:14px;padding:24px;transition:.2s}
+.compare-card:hover{border-color:var(--gold);transform:translateY(-2px)}
+
+.compare-label{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;font-weight:600}
+.compare-year{font-size:13px;margin-bottom:16px;color:var(--text)}
+
+.compare-value{font-family:'Playfair Display',serif;font-size:36px;margin-bottom:16px;line-height:1}
+.compare-value.pos{color:var(--green)}
+.compare-value.neg{color:var(--red)}
+
+.compare-rate{display:flex;gap:6px;align-items:center;margin-bottom:12px}
+.rate-value{font-size:14px;font-weight:700}
+.rate-value.high{color:var(--green)}
+.rate-value.mid{color:var(--gold)}
+.rate-value.low{color:var(--red)}
+.rate-label{font-size:11px;color:var(--faint)}
+
+.compare-meta{font-size:12px;color:var(--faint);line-height:1.8}
+.meta-value{color:var(--dim);font-weight:500}
+
+.compare-delta{font-size:12px;padding:6px 12px;border-radius:6px;display:inline-block;font-weight:600;margin-top:12px}
+.compare-delta.up{background:rgba(62,207,142,.15);color:var(--green)}
+.compare-delta.dn{background:rgba(224,82,82,.15);color:var(--red)}
+
+.placeholder{text-align:center;padding:60px;color:var(--dim);font-size:14px}
+
+@media(max-width:1200px){.compare-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="loading" id="loading">
+<div class="spinner"></div>
+<div style="color:var(--dim);font-size:14px">Google Sheets laden...</div>
+</div>
+
+<div class="hdr">
+<div>
+<div class="hdr-title">Familie Financiën — Samen</div>
+<div class="hdr-sub" id="hdr-sub">Dashboard · Versie 1 (Alleen Maandweergave)</div>
+</div>
+<div class="hdr-right">
+<div class="tab-group">
+<button class="tab active" onclick="switchView('monthly')">📅 Maand</button>
+<button class="tab" onclick="switchView('yearly')">📊 Jaar</button>
+</div>
+<select id="year-select" onchange="changeYear()"></select>
+<select id="month-select" onchange="changeMonth()"></select>
+<button class="btn btn-outline" onclick="loadData()" title="Ververs data">🔄</button>
+</div>
+</div>
+
+<div class="main">
+
+<div class="view active" id="monthly-view">
+<div class="hero">
+<div class="hero-title" id="hero-title">Januari 2026</div>
+<div class="compare-grid" id="compare-grid"></div>
+</div>
+</div>
+
+<div class="view" id="yearly-view">
+<div class="placeholder">
+<div style="font-size:48px;margin-bottom:16px">📊</div>
+<div style="font-size:16px;font-weight:600;margin-bottom:8px">Jaaroverzicht</div>
+<div>Komt in Versie 2 (zodra maandweergave is geverifieerd)</div>
+</div>
+</div>
+
+</div>
+
+<script>
+const SHEET_ID = "1MS_4az-9_OdeG0PxONFoJxDBR5lmS_JbgaFpS--rCds";
+const MO_FULL = ["Januari","Februari","Maart","April","Mei","Juni","Juli","Augustus","September","Oktober","November","December"];
+
+let allTransactions = [];
+let monthlySummary = {};
+let currentYear = "2026";
+let currentMonth = "1";
+
+// Formatting helpers
+const fa = n => "€" + Math.abs(n||0).toLocaleString("nl-NL",{maximumFractionDigits:0});
+const fp = n => (n||0).toFixed(1) + "%";
+const fc = (n,showSign=false) => {
+if(n==null || isNaN(n)) return "–";
+const a = Math.abs(n);
+const sign = showSign ? (n < 0 ? "-" : "+") : "";
+return sign + (a >= 1000 ? "€" + (a/1000).toFixed(1) + "K" : "€" + a.toFixed(0));
+};
+
+async function loadData(){
+document.getElementById('loading').classList.remove('hidden');
+
+try{
+const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Transacties`;
+const response = await fetch(url);
+const text = await response.text();
+const jsonStr = text.match(/google\.visualization\.Query\.setResponse\(([\s\S\w]+)\)/)[1];
+const data = JSON.parse(jsonStr);
+
+if(!data.table || !data.table.rows){
+throw new Error("Geen data gevonden");
+}
+
+// Parse transactions - EXACT SAME LOGIC AS VERIFICATION PAGE
+allTransactions = data.table.rows.map(row => {
+const c = row.c || [];
+return {
+Year: c[7]?.v || null,
+Month: c[8]?.v || null,
+Hoofdcategorie: c[4]?.v || "",
+Subcategorie: c[3]?.v || "",
+Amount: parseFloat(c[11]?.v || 0)
+};
+}).filter(r => r.Year && r.Month && r.Hoofdcategorie && !isNaN(r.Amount));
+
+console.log(`Loaded ${allTransactions.length} transactions`);
+
+// Build monthly summary - EXACT SAME LOGIC AS VERIFICATION PAGE
+monthlySummary = {};
+allTransactions.forEach(t => {
+const key = `${t.Year}-${String(t.Month).padStart(2,'0')}`;
+if(!monthlySummary[key]){
+monthlySummary[key] = {
+year: t.Year,
+month: t.Month,
+Inkomsten: 0,
+'Vaste lasten': 0,
+'Huishoudelijke uitgaven': 0,
+'Reserveringsuitgaven': 0,
+'Vrijetijdsuitgaven': 0,
+total: 0
+};
+}
+monthlySummary[key][t.Hoofdcategorie] = (monthlySummary[key][t.Hoofdcategorie] || 0) + t.Amount;
+monthlySummary[key].total += t.Amount;
+});
+
+console.log("Monthly summary:", monthlySummary);
+
+// Find latest year/month
+const keys = Object.keys(monthlySummary).sort().reverse();
+if(keys.length > 0){
+const latest = keys[0].split('-');
+currentYear = latest[0];
+currentMonth = String(parseInt(latest[1]));
+}
+
+updateSelectors();
+updateSubtitle();
+renderMonthly();
+
+document.getElementById('loading').classList.add('hidden');
+
+}catch(error){
+console.error("Load error:", error);
+document.getElementById('loading').innerHTML = 
+`<div style="color:var(--red);max-width:500px;text-align:center;line-height:1.6;padding:40px">
+❌ Fout bij laden<br><br>${error.message}<br><br>
+<button class="btn btn-outline" onclick="location.reload()">Probeer opnieuw</button>
+</div>`;
+}
+}
+
+function updateSelectors(){
+// Year selector
+const years = [...new Set(Object.keys(monthlySummary).map(k => k.split('-')[0]))].sort().reverse();
+const yearSelect = document.getElementById('year-select');
+yearSelect.innerHTML = years.map(y => 
+`<option value="${y}" ${y===currentYear?'selected':''}>${y}</option>`
+).join('');
+
+// Month selector
+const monthSelect = document.getElementById('month-select');
+monthSelect.innerHTML = MO_FULL.map((m,i) => 
+`<option value="${i+1}" ${(i+1)==currentMonth?'selected':''}>${m}</option>`
+).join('');
+}
+
+function updateSubtitle(){
+const keys = Object.keys(monthlySummary).sort().reverse();
+if(keys.length > 0){
+const latest = keys[0].split('-');
+document.getElementById('hdr-sub').textContent = 
+`Dashboard · Versie 1 · Data t/m ${MO_FULL[parseInt(latest[1])-1]} ${latest[0]}`.toUpperCase();
+}
+}
+
+function changeYear(){
+currentYear = document.getElementById('year-select').value;
+renderMonthly();
+}
+
+function changeMonth(){
+currentMonth = document.getElementById('month-select').value;
+renderMonthly();
+}
+
+function switchView(view){
+document.querySelectorAll('.tab').forEach((t,i) => 
+t.classList.toggle('active', ['monthly','yearly'][i] === view)
+);
+document.getElementById('monthly-view').classList.toggle('active', view === 'monthly');
+document.getElementById('yearly-view').classList.toggle('active', view === 'yearly');
+}
+
+function renderMonthly(){
+const y = parseInt(currentYear);
+const m = parseInt(currentMonth);
+
+document.getElementById('hero-title').textContent = `${MO_FULL[m-1]} ${y}`;
+
+// Get data for current month and previous years
+const curr = getMonthData(y, m);
+const prev1 = getMonthData(y-1, m);
+const prev2 = getMonthData(y-2, m);
+
+const cards = [
+{label: "Dit jaar", year: y, data: curr},
+{label: "Vorig jaar", year: y-1, data: prev1, delta: curr ? (curr.total - (prev1?.total || 0)) : null},
+{label: "2 jaar geleden", year: y-2, data: prev2, delta: curr ? (curr.total - (prev2?.total || 0)) : null}
+];
+
+let html = "";
+cards.forEach(card => {
+if(!card.data){
+html += `<div class="compare-card">
+<div class="compare-label">${card.label}</div>
+<div class="compare-year">${MO_FULL[m-1]} ${card.year}</div>
+<div style="color:var(--faint);padding:40px 0;text-align:center">Geen data</div>
+</div>`;
+return;
+}
+
+const net = card.data.total;
+const income = card.data.Inkomsten;
+const expenses = Math.abs(card.data['Vaste lasten']) + 
+Math.abs(card.data['Huishoudelijke uitgaven']) + 
+Math.abs(card.data['Reserveringsuitgaven']) + 
+Math.abs(card.data['Vrijetijdsuitgaven']);
+const rate = income > 0 ? (net / income * 100) : 0;
+const rateClass = rate >= 15 ? 'high' : rate >= 5 ? 'mid' : 'low';
+
+html += `<div class="compare-card">
+<div class="compare-label">${card.label}</div>
+<div class="compare-year">${MO_FULL[m-1]} ${card.year}</div>
+<div class="compare-value ${net>=0?'pos':'neg'}">${fc(net, false)}</div>
+
+${card.delta !== null && card.delta !== undefined ? 
+`<div class="compare-delta ${card.delta>=0?'up':'dn'}">
+${card.delta>=0?'↑':'↓'} ${fa(Math.abs(card.delta))} beter
+</div>` : ''}
+
+<div class="compare-rate">
+<span class="rate-value ${rateClass}">${fp(rate)}</span>
+<span class="rate-label">spaarquote</span>
+</div>
+
+<div class="compare-meta">
+Inkomsten: <span class="meta-value">${fa(income)}</span><br>
+Uitgaven: <span class="meta-value">${fa(expenses)}</span>
+</div>
+</div>`;
+});
+
+document.getElementById('compare-grid').innerHTML = html;
+
+console.log(`Rendered ${MO_FULL[m-1]} ${y}:`, curr);
+}
+
+function getMonthData(year, month){
+const key = `${year}-${String(month).padStart(2,'0')}`;
+return monthlySummary[key] || null;
+}
+
+// Load on page load
+document.addEventListener('DOMContentLoaded', loadData);
+</script>
+</body>
+</html>
