@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Data Verificatie - Google Sheets</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,sans-serif;padding:20px;background:#f5f5f5;font-size:14px}
+.container{max-width:1400px;margin:0 auto;background:#fff;padding:30px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+h1{color:#333;margin-bottom:10px;font-size:24px}
+.subtitle{color:#666;margin-bottom:30px;font-size:14px}
+.loading{text-align:center;padding:60px;color:#666}
+.spinner{display:inline-block;width:40px;height:40px;border:4px solid #f3f3f3;border-top:4px solid #3498db;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:20px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.section{margin-bottom:40px}
+.section-title{font-size:18px;font-weight:600;color:#333;margin-bottom:15px;padding-bottom:10px;border-bottom:2px solid #e0e0e0}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
+th{background:#f8f9fa;padding:12px 8px;text-align:left;font-weight:600;color:#444;border-bottom:2px solid #dee2e6;position:sticky;top:0}
+td{padding:10px 8px;border-bottom:1px solid #e9ecef}
+tr:hover{background:#f8f9fa}
+.number{text-align:right;font-family:monospace}
+.positive{color:#28a745;font-weight:600}
+.negative{color:#dc3545;font-weight:600}
+.total-row{background:#fff3cd;font-weight:700}
+.total-row td{border-top:2px solid #ffc107;border-bottom:2px solid #ffc107}
+.year-section{margin-bottom:30px;padding:20px;background:#f8f9fa;border-radius:6px}
+.filters{margin-bottom:20px;display:flex;gap:15px;align-items:center;flex-wrap:wrap}
+.filters label{font-weight:600;color:#555}
+.filters select{padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:13px}
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:30px}
+.summary-card{background:#fff;padding:20px;border-radius:6px;border:1px solid #e0e0e0}
+.summary-label{font-size:12px;color:#666;text-transform:uppercase;margin-bottom:8px}
+.summary-value{font-size:28px;font-weight:700;color:#333}
+.summary-value.pos{color:#28a745}
+.summary-value.neg{color:#dc3545}
+.btn{padding:10px 20px;background:#007bff;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px;font-weight:500}
+.btn:hover{background:#0056b3}
+.error{background:#f8d7da;color:#721c24;padding:20px;border-radius:4px;border:1px solid #f5c6cb}
+.transaction-table{max-height:500px;overflow-y:auto;margin-top:10px}
+</style>
+</head>
+<body>
+
+<div class="container">
+<h1>📊 Data Verificatie Tool</h1>
+<div class="subtitle">Controleer of de data correct wordt ingeladen uit Google Sheets</div>
+
+<div id="loading" class="loading">
+<div class="spinner"></div>
+<div>Data laden van Google Sheets...</div>
+</div>
+
+<div id="content" style="display:none">
+
+<div class="filters">
+<label>Filter op jaar:</label>
+<select id="year-filter" onchange="filterData()">
+<option value="all">Alle jaren</option>
+</select>
+<label>Filter op maand:</label>
+<select id="month-filter" onchange="filterData()">
+<option value="all">Alle maanden</option>
+<option value="1">Januari</option>
+<option value="2">Februari</option>
+<option value="3">Maart</option>
+<option value="4">April</option>
+<option value="5">Mei</option>
+<option value="6">Juni</option>
+<option value="7">Juli</option>
+<option value="8">Augustus</option>
+<option value="9">September</option>
+<option value="10">Oktober</option>
+<option value="11">November</option>
+<option value="12">December</option>
+</select>
+<button class="btn" onclick="loadData()">🔄 Ververs Data</button>
+</div>
+
+<div class="section">
+<div class="section-title">Maandelijkse Totalen (per Jaar & Maand)</div>
+<div id="monthly-summary"></div>
+</div>
+
+<div class="section">
+<div class="section-title">Jaarlijkse Totalen</div>
+<div id="yearly-summary"></div>
+</div>
+
+<div class="section">
+<div class="section-title">Ruwe Transactie Data (eerste 100 rijen)</div>
+<div class="transaction-table">
+<table id="raw-data">
+<thead>
+<tr>
+<th>Year</th>
+<th>Month</th>
+<th>Hoofdcategorie</th>
+<th>Subcategorie</th>
+<th class="number">Amount</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+
+<script>
+const SHEET_ID = "1MS_4az-9_OdeG0PxONFoJxDBR5lmS_JbgaFpS--rCds";
+let allTransactions = [];
+
+async function loadData(){
+document.getElementById('loading').style.display = 'block';
+document.getElementById('content').style.display = 'none';
+
+try{
+const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Transacties`;
+const response = await fetch(url);
+const text = await response.text();
+const jsonStr = text.match(/google\.visualization\.Query\.setResponse\(([\s\S\w]+)\)/)[1];
+const data = JSON.parse(jsonStr);
+
+if(!data.table || !data.table.rows){
+throw new Error("Geen data gevonden in sheet");
+}
+
+// Parse all transactions
+allTransactions = data.table.rows.map(row => {
+const c = row.c || [];
+return {
+Year: c[7]?.v || null,           // Column H
+Month: c[8]?.v || null,          // Column I
+Hoofdcategorie: c[4]?.v || "",   // Column E
+Subcategorie: c[3]?.v || "",     // Column D
+Amount: parseFloat(c[11]?.v || 0) // Column L
+};
+}).filter(r => r.Year && r.Month && r.Hoofdcategorie && !isNaN(r.Amount));
+
+console.log(`Loaded ${allTransactions.length} transactions`);
+console.log("Sample:", allTransactions.slice(0,3));
+
+// Populate year filter
+const years = [...new Set(allTransactions.map(t => t.Year))].sort();
+const yearFilter = document.getElementById('year-filter');
+yearFilter.innerHTML = '<option value="all">Alle jaren</option>' + 
+years.map(y => `<option value="${y}">${y}</option>`).join('');
+
+// Display data
+displayMonthlySummary();
+displayYearlySummary();
+displayRawData();
+
+document.getElementById('loading').style.display = 'none';
+document.getElementById('content').style.display = 'block';
+
+}catch(error){
+document.getElementById('loading').innerHTML = 
+`<div class="error">
+<strong>❌ Fout bij laden:</strong><br><br>
+${error.message}<br><br>
+Controleer of de sheet gedeeld is als "Iedereen met de link kan bekijken"<br><br>
+<button class="btn" onclick="location.reload()">Probeer opnieuw</button>
+</div>`;
+}
+}
+
+function displayMonthlySummary(){
+const monthlySummary = {};
+
+allTransactions.forEach(t => {
+const key = `${t.Year}-${String(t.Month).padStart(2,'0')}`;
+if(!monthlySummary[key]){
+monthlySummary[key] = {
+year: t.Year,
+month: t.Month,
+Inkomsten: 0,
+'Vaste lasten': 0,
+'Huishoudelijke uitgaven': 0,
+'Reserveringsuitgaven': 0,
+'Vrijetijdsuitgaven': 0,
+total: 0
+};
+}
+monthlySummary[key][t.Hoofdcategorie] = (monthlySummary[key][t.Hoofdcategorie] || 0) + t.Amount;
+monthlySummary[key].total += t.Amount;
+});
+
+const sorted = Object.keys(monthlySummary).sort().reverse();
+
+let html = '<table><thead><tr><th>Jaar</th><th>Maand</th><th class="number">Inkomsten</th><th class="number">Vaste lasten</th><th class="number">Huishoudelijk</th><th class="number">Reserveringen</th><th class="number">Vrijetijd</th><th class="number">NETTO</th></tr></thead><tbody>';
+
+sorted.forEach(key => {
+const m = monthlySummary[key];
+const monthNames = ["","Jan","Feb","Mrt","Apr","Mei","Jun","Jul","Aug","Sep","Okt","Nov","Dec"];
+html += `<tr>
+<td>${m.year}</td>
+<td>${monthNames[m.month]}</td>
+<td class="number positive">€${Math.abs(m.Inkomsten).toLocaleString('nl-NL',{maximumFractionDigits:0})}</td>
+<td class="number negative">€${Math.abs(m['Vaste lasten']).toLocaleString('nl-NL',{maximumFractionDigits:0})}</td>
+<td class="number negative">€${Math.abs(m['Huishoudelijke uitgaven']).toLocaleString('nl-NL',{maximumFractionDigits:0})}</td>
+<td class="number negative">€${Math.abs(m['Reserveringsuitgaven']).toLocaleString('nl-NL',{maximumFractionDigits:0})}</td>
+<td class="number negative">€${Math.abs(m['Vrijetijdsuitgaven']).toLocaleString('nl-NL',{maximumFractionDigits:0})}</td>
+<td class="number ${m.total>=0?'positive':'negative'}"><strong>€${Math.abs(m.total).toLocaleString('nl-NL',{maximumFractionDigits:0})}</strong></td>
+</tr>`;
+});
+
+html += '</tbody></table>';
+document.getElementById('monthly-summary').innerHTML = html;
+}
+
+function displayYearlySummary(){
+const yearlySummary = {};
+
+allTransactions.forEach(t => {
+if(!yearlySummary[t.Year]){
+yearlySummary[t.Year] = {
+Inkomsten: 0,
+'Vaste lasten': 0,
+'Huishoudelijke uitgaven': 0,
+'Reserveringsuitgaven': 0,
+'Vrijetijdsuitgaven': 0,
+total: 0
+};
+}
+yearlySummary[t.Year][t.Hoofdcategorie] = (yearlySummary[t.Year][t.Hoofdcategorie] || 0) + t.Amount;
+yearlySummary[t.Year].total += t.Amount;
+});
+
+const years = Object.keys(yearlySummary).sort().reverse();
+
+let html = '<table><thead><tr><th>Jaar</th><th class="number">Inkomsten</th><th class="number">Vaste lasten</th><th class="number">Huishoudelijk</th><th class="number">Reserveringen</th><th class="number">Vrijetijd</th><th class="number">NETTO</th><th class="number">Spaarquote %</th></tr></thead><tbody>';
+
+years.forEach(year => {
+const y = yearlySummary[year];
+const savingsRate = y.Inkomsten > 0 ? (y.total / y.Inkomsten * 100) : 0;
+html += `<tr class="total-row">
+<td><strong>${year}</strong></td>
+<td class="number positive">€${Math.abs(y.Inkomsten).toLocaleString('nl-NL',{maximumFractionDigits:0})}</td>
+<td class="number negative">€${Math.abs(y['Vaste lasten']).toLocaleString('nl-NL',{maximumFractionDigits:0})}</td>
+<td class="number negative">€${Math.abs(y['Huishoudelijke uitgaven']).toLocaleString('nl-NL',{maximumFractionDigits:0})}</td>
+<td class="number negative">€${Math.abs(y['Reserveringsuitgaven']).toLocaleString('nl-NL',{maximumFractionDigits:0})}</td>
+<td class="number negative">€${Math.abs(y['Vrijetijdsuitgaven']).toLocaleString('nl-NL',{maximumFractionDigits:0})}</td>
+<td class="number ${y.total>=0?'positive':'negative'}"><strong>€${Math.abs(y.total).toLocaleString('nl-NL',{maximumFractionDigits:0})}</strong></td>
+<td class="number ${savingsRate>=15?'positive':savingsRate>=5?'':'negative'}"><strong>${savingsRate.toFixed(1)}%</strong></td>
+</tr>`;
+});
+
+html += '</tbody></table>';
+document.getElementById('yearly-summary').innerHTML = html;
+}
+
+function displayRawData(){
+const tbody = document.querySelector('#raw-data tbody');
+const monthNames = ["","Jan","Feb","Mrt","Apr","Mei","Jun","Jul","Aug","Sep","Okt","Nov","Dec"];
+
+let html = '';
+allTransactions.slice(0,100).forEach(t => {
+html += `<tr>
+<td>${t.Year}</td>
+<td>${monthNames[t.Month]}</td>
+<td>${t.Hoofdcategorie}</td>
+<td>${t.Subcategorie}</td>
+<td class="number ${t.Amount>=0?'positive':'negative'}">€${t.Amount.toLocaleString('nl-NL',{minimumFractionDigits:2})}</td>
+</tr>`;
+});
+
+tbody.innerHTML = html;
+}
+
+function filterData(){
+// TODO: Add filtering logic if needed
+displayMonthlySummary();
+displayYearlySummary();
+displayRawData();
+}
+
+// Load on page load
+document.addEventListener('DOMContentLoaded', loadData);
+</script>
+</body>
+</html>
