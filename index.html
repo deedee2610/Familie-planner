@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Familie Financieel Dashboard</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a; --border: #2e3250;
+    --text: #e8eaf6; --muted: #7b80a8;
+    --green: #4caf76; --green-bg: rgba(76,175,118,0.12);
+    --gold: #f5a623; --gold-bg: rgba(245,166,35,0.12);
+    --red: #ef5350; --red-bg: rgba(239,83,80,0.12);
+    --blue: #5c9eff; --blue-bg: rgba(92,158,255,0.12);
+    --purple: #9c7af5;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; line-height: 1.5; }
+
+  /* ── LAYOUT ── */
+  .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  .header h1 { font-size: 18px; font-weight: 700; }
+  .header h1 span { color: var(--blue); }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .header-meta { color: var(--muted); font-size: 12px; }
+  .loading-bar { display: none; height: 3px; background: linear-gradient(90deg, var(--blue), var(--purple)); animation: slide 1.2s infinite; }
+  @keyframes slide { 0%{background-position:-200px} 100%{background-position:200px} }
+  .container { max-width: 1400px; margin: 0 auto; padding: 20px 24px; }
+  .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); margin-bottom: 12px; margin-top: 28px; }
+
+  /* ── CARDS ── */
+  .cards-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; }
+  .cards-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+  .cards-2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+  .card.highlight { border-color: var(--blue); background: linear-gradient(135deg, var(--surface) 0%, rgba(92,158,255,0.06) 100%); }
+  .card-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+  .card-value { font-size: 26px; font-weight: 700; }
+  .green { color: var(--green); } .red { color: var(--red); } .gold { color: var(--gold); } .blue { color: var(--blue); }
+  .card-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+  .metric-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; }
+  .metric-label { font-size: 12px; color: var(--muted); }
+  .metric-val { font-size: 13px; font-weight: 600; }
+
+  /* ── VERDICT BANNER ── */
+  .verdict { background: var(--green-bg); border: 1px solid var(--green); border-radius: 12px; padding: 14px 18px; display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+  .verdict.warn { background: var(--gold-bg); border-color: var(--gold); }
+  .verdict-icon { font-size: 20px; }
+  .verdict-text { font-size: 14px; font-weight: 600; }
+  .verdict-text .hl { color: var(--green); }
+  .verdict.warn .verdict-text .hl { color: var(--gold); }
+
+  /* ── PROGRESS ── */
+  .progress-bar-wrap { background: var(--surface2); border-radius: 6px; height: 10px; margin: 8px 0 4px; overflow: hidden; }
+  .progress-bar { height: 100%; border-radius: 6px; transition: width 0.6s ease; }
+  .progress-bar.green { background: var(--green); }
+  .progress-bar.gold { background: var(--gold); }
+  .progress-bar.red { background: var(--red); }
+  .row-between { display: flex; justify-content: space-between; align-items: center; }
+
+  /* ── PULSE GRID ── */
+  .pulse-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 14px; }
+  .pulse-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+
+  /* ── TREND GRID ── */
+  .trend-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+  .chart-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .chart-sub { font-size: 11px; color: var(--muted); margin-bottom: 10px; }
+
+  /* ── ALERTS ── */
+  .alerts-grid { display: flex; flex-direction: column; gap: 10px; }
+  .alert-item { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; display: flex; align-items: flex-start; gap: 12px; }
+  .alert-item.warn { border-left: 3px solid var(--gold); }
+  .alert-item.good { border-left: 3px solid var(--green); }
+  .alert-item.danger { border-left: 3px solid var(--red); }
+  .alert-item.info { border-left: 3px solid var(--blue); }
+  .alert-icon { font-size: 18px; line-height: 1.4; }
+  .alert-title { font-size: 13px; font-weight: 600; }
+  .alert-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  /* ── BENCHMARKS ── */
+  .bench-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .bench-row:last-child { border-bottom: none; }
+  .bench-label { width: 190px; font-size: 12px; color: var(--muted); flex-shrink: 0; }
+  .bench-bar-wrap { flex: 1; background: var(--surface2); border-radius: 4px; height: 8px; position: relative; overflow: visible; }
+  .bench-bar-you { height: 8px; border-radius: 4px; background: var(--blue); position: absolute; top: 0; }
+  .bench-bar-nibud { width: 2px; height: 14px; background: var(--gold); position: absolute; top: -3px; }
+  .bench-val { width: 70px; text-align: right; font-size: 12px; font-weight: 600; }
+  .bench-nibud-val { width: 70px; text-align: right; font-size: 12px; color: var(--gold); }
+
+  /* ── ACTION PANEL ── */
+  .action-grid { display: flex; flex-direction: column; gap: 10px; }
+  .action-item { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .action-title { font-size: 13px; font-weight: 700; color: var(--blue); }
+  .action-desc { font-size: 12px; color: var(--text); margin-top: 4px; }
+  .action-impact { font-size: 12px; color: var(--green); margin-top: 6px; font-weight: 600; }
+
+  /* ── BUDGET TABLE ── */
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table th { text-align: left; padding: 8px 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); border-bottom: 1px solid var(--border); }
+  .data-table td { padding: 8px 10px; font-size: 13px; border-bottom: 1px solid rgba(46,50,80,0.4); }
+  .data-table tr:last-child td { border-bottom: none; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+  .tag.green { background: var(--green-bg); color: var(--green); }
+  .tag.red { background: var(--red-bg); color: var(--red); }
+  .tag.gold { background: var(--gold-bg); color: var(--gold); }
+
+  /* ── VASTE LASTEN ALERT ── */
+  .vaste-alert { background: var(--gold-bg); border: 1px solid var(--gold); border-radius: 8px; padding: 10px 14px; font-size: 12px; color: var(--gold); margin-top: 10px; }
+
+  /* ── LOADING / ERROR ── */
+  #loadingMsg { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 16px; }
+  #errorMsg { display: none; background: var(--red-bg); border: 1px solid var(--red); border-radius: 10px; padding: 20px; margin: 20px; color: var(--red); font-size: 13px; }
+  #dashboard { display: none; }
+
+  footer { text-align: center; color: var(--muted); font-size: 11px; padding: 24px; margin-top: 20px; }
+
+  @media (max-width: 900px) {
+    .cards-4 { grid-template-columns: repeat(2,1fr); }
+    .pulse-grid, .trend-grid { grid-template-columns: 1fr; }
+    .cards-2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Familie <span>Financieel</span> Dashboard</h1>
+  <div class="header-right">
+    <div class="header-meta" id="headerMeta">Data laden...</div>
+    <button onclick="loadData()" style="background:var(--blue);border:none;color:#fff;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;">↻ Vernieuwen</button>
+  </div>
+</div>
+<div class="loading-bar" id="loadingBar" style="display:block;"></div>
+
+<div id="loadingMsg">📊 Transacties laden uit Google Sheets...</div>
+<div id="errorMsg"></div>
+<div id="dashboard" class="container"></div>
+
+<script>
+// ════════════════════════════════════════════════════════
+// CONFIGURATIE
+// ════════════════════════════════════════════════════════
+const SHEET_ID        = '1MS_4az-9_OdeG0PxONFoJxDBR5lmS_JbgaFpS--rCds';
+const SHEET_NAME      = 'Transacties';
+const SPAARDOEL_PCT   = 0.15;   // 15% spaarquote
+
+const MAANDEN = ['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+const JAAR_KLEUREN = { 2023:'#4a7fc1', 2024:'#f5a623', 2025:'#9c7af5', 2026:'#4caf76' };
+
+// ── Gecombineerde (geaggregeerde) maanddata – beide partners samen
+// Bron: Familieplanner geaggregeerde draaitabel (beide rekeningen)
+const PIVOT_SAVINGS = {
+  2023: [1900.62,-1778.81,556.02,-587.86,2703.04,2705.66,529.04,35.36,-3999.01,179.62,431.99,2989.95],
+  2024: [367.88,-608.37,667.22,967.48,6413.93,-557.28,-435.32,373.38,-1647.28,62.79,591.17,201.44],
+  2025: [83.38,-8.76,1468.72,-2780.04,3172.83,495.08,-59.47,-889.93,-549.22,-1178.56,2452.94,4932.53],
+  2026: [710.05]
+};
+const PIVOT_INCOME = {
+  2023: [10458.62,7009.58,9850.69,8454.79,11951.23,11311.84,9361.74,8518.12,7800.04,8454.29,8529.04,10428.98],
+  2024: [9137.22,8989.83,8873.98,9316.37,14475.80,10450.59,9198.08,9399.93,8222.59,9200.28,9381.13,10454.27],
+  2025: [7625.64,8845.08,11302.80,8875.03,13917.43,10092.04,9027.49,8880.59,8889.07,8998.52,9221.86,13745.57],
+  2026: [8798.45]
+};
+const PIVOT_YEARS = [2023,2024,2025,2026];
+
+// ════════════════════════════════════════════════════════
+// DATA LADEN UIT GOOGLE SHEETS
+// ════════════════════════════════════════════════════════
+async function loadData() {
+  document.getElementById('loadingBar').style.display = 'block';
+  document.getElementById('loadingMsg').style.display = 'block';
+  document.getElementById('dashboard').style.display  = 'none';
+  document.getElementById('errorMsg').style.display   = 'none';
+  document.getElementById('headerMeta').textContent   = 'Data laden...';
+
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`;
+
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const csv = await resp.text();
+    if (!csv || csv.startsWith('<!DOCTYPE'))
+      throw new Error('Werkblad niet publiek toegankelijk. Ga naar Delen → Iedereen met de link → Viewer.');
+    const parsed = parseTransacties(csv);
+    renderDashboard(parsed);
+    document.getElementById('headerMeta').textContent =
+      `Bijgewerkt: ${new Date().toLocaleDateString('nl-NL',{day:'numeric',month:'long',year:'numeric'})} · ${parsed.totalRows.toLocaleString('nl-NL')} transacties`;
+  } catch(e) {
+    document.getElementById('errorMsg').style.display = 'block';
+    document.getElementById('errorMsg').innerHTML =
+      `<strong>⚠️ Kan data niet laden</strong><br><br>${e.message}<br><br>
+       <strong>Oplossing:</strong> Ga naar je Google Sheet → Delen → "Iedereen met de link kan bekijken" → Opslaan.`;
+    document.getElementById('loadingMsg').style.display = 'none';
+    document.getElementById('headerMeta').textContent = 'Laad fout';
+  } finally {
+    document.getElementById('loadingBar').style.display = 'none';
+  }
+}
+
+// ════════════════════════════════════════════════════════
+// CSV VERWERKEN
+// Kolomstructuur: Info, Laagste categorie, Notes,
+//   Subcategorie, Hoofdcategorie, Label, Account,
+//   Year, Month, Date, Info1, Amount, Info2
+// ════════════════════════════════════════════════════════
+function parseCSVRegel(regel) {
+  const result = []; let cur = '', inQuote = false;
+  for (const c of regel) {
+    if (c === '"') inQuote = !inQuote;
+    else if (c === ',' && !inQuote) { result.push(cur.trim()); cur = ''; }
+    else cur += c;
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+function parseBedrag(s) {
+  if (!s) return 0;
+  s = s.replace(/['"€\s]/g,'').replace(/\./g,'').replace(',','.');
+  return parseFloat(s) || 0;
+}
+
+function parseTransacties(csv) {
+  const regels = csv.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').filter(r => r.trim());
+  if (regels.length < 2) throw new Error('Geen data gevonden in het werkblad.');
+
+  const headers = parseCSVRegel(regels[0]).map(h => h.replace(/['"]/g,'').trim());
+  const iSub  = headers.findIndex(h => h === 'Subcategorie');
+  const iHoof = headers.findIndex(h => h === 'Hoofdcategorie');
+  const iYear = headers.findIndex(h => h === 'Year');
+  const iMonth= headers.findIndex(h => h === 'Month');
+  const iAmt  = headers.findIndex(h => h === 'Amount');
+
+  if (iAmt < 0 || iYear < 0 || iMonth < 0)
+    throw new Error(`Kolommen niet gevonden. Gevonden: ${headers.join(', ')}`);
+
+  // Aggregatie: byYMSub[jaar][maand][subcategorie] = totaal
+  //             byYMHoof[jaar][maand][hoofdcategorie] = totaal
+  const byYMSub  = {};
+  const byYMHoof = {};
+  let totalRows  = 0;
+
+  for (let i = 1; i < regels.length; i++) {
+    const k = parseCSVRegel(regels[i]);
+    if (k.length < 3) continue;
+    const jr = parseInt(k[iYear]);
+    const mo = parseInt(k[iMonth]);
+    if (!jr || !mo || jr < 2020 || jr > 2030) continue;
+    const bedrag = parseBedrag(k[iAmt]);
+    if (!bedrag) continue;
+    const sub  = iSub  >= 0 ? k[iSub].replace(/['"]/g,'').trim()  : 'Overig';
+    const hoof = iHoof >= 0 ? k[iHoof].replace(/['"]/g,'').trim() : 'Overig';
+
+    if (!byYMSub[jr])          byYMSub[jr]          = {};
+    if (!byYMSub[jr][mo])      byYMSub[jr][mo]      = {};
+    byYMSub[jr][mo][sub]  = (byYMSub[jr][mo][sub]  || 0) + bedrag;
+
+    if (!byYMHoof[jr])         byYMHoof[jr]         = {};
+    if (!byYMHoof[jr][mo])     byYMHoof[jr][mo]     = {};
+    byYMHoof[jr][mo][hoof] = (byYMHoof[jr][mo][hoof] || 0) + bedrag;
+
+    totalRows++;
+  }
+
+  if (!totalRows) throw new Error('Geen geldige transacties gevonden. Controleer de Amount-kolom (Nederlands formaat: "-31,90").');
+
+  // Huidig jaar/maand = laatste maand met data in de CSV
+  let huidigJaar = 0, huidigeMaand = 0;
+  Object.keys(byYMHoof).forEach(jr => {
+    for (let m = 12; m >= 1; m--) {
+      if (byYMHoof[jr][m] && (+jr > huidigJaar || (+jr === huidigJaar && m > huidigeMaand))) {
+        huidigJaar = +jr; huidigeMaand = m;
+      }
+    }
+  });
+
+  return { byYMSub, byYMHoof, huidigJaar, huidigeMaand, totalRows };
+}
+
+// ════════════════════════════════════════════════════════
+// DASHBOARD OPBOUWEN
+// ════════════════════════════════════════════════════════
+function renderDashboard(d) {
+  document.getElementById('loadingMsg').style.display = 'none';
+  const el = document.getElementById('dashboard');
+  el.style.display = 'block';
+
+  const { byYMSub, byYMHoof, huidigJaar: cy, huidigeMaand: cm } = d;
+
+  // Helpers
+  const getSub  = (jr, mo, k) => byYMSub[jr]?.[mo]?.[k]  ?? 0;
+  const getHoof = (jr, mo, k) => byYMHoof[jr]?.[mo]?.[k] ?? 0;
+  const getSav  = (jr, mo) => PIVOT_SAVINGS[jr]?.[mo-1]   ?? null;
+  const getInc  = (jr, mo) => PIVOT_INCOME[jr]?.[mo-1]    ?? null;
+  const fmt     = v => '€\u00a0' + Math.abs(Math.round(v)).toLocaleString('nl-NL');
+  const fmtDiff = v => (v >= 0 ? '+' : '−') + '€\u00a0' + Math.abs(Math.round(v)).toLocaleString('nl-NL');
+
+  // ── Huidig maand
+  const curSav    = getSav(cy, cm) ?? 0;
+  const curInc    = getInc(cy, cm) ?? 0;
+  const curExp    = curInc - curSav;
+  const curSavPct = curInc > 0 ? curSav / curInc * 100 : 0;
+
+  // ── YTD (gecombineerde data)
+  let ytdSav = 0, ytdInc = 0;
+  for (let m = 1; m <= cm; m++) {
+    ytdSav += getSav(cy, m) ?? 0;
+    ytdInc += getInc(cy, m) ?? 0;
+  }
+  const ytdSavPct = ytdInc > 0 ? ytdSav / ytdInc * 100 : 0;
+  const projSav   = cm > 0 ? ytdSav / cm * 12 : 0;
+  const projInc   = cm > 0 ? ytdInc / cm * 12 : 0;
+  const projExp   = projInc - projSav;
+  const targetSav = projInc * SPAARDOEL_PCT;
+  const doelGap   = ytdSav - ytdInc * SPAARDOEL_PCT;
+
+  // ── Vorige maand / zelfde maand vorig jaar
+  const vorigMaandSav   = getSav(cy, cm - 1);
+  const vorigeJarenZelfMnd = [cy-1, cy-2, cy-3].map(py => ({
+    jaar: py,
+    sav: getSav(py, cm),
+    inc: getInc(py, cm),
+    exp: getSav(py,cm) !== null && getInc(py,cm) !== null ? getInc(py,cm) - getSav(py,cm) : null
+  }));
+  const vsVorigeMaand   = vorigMaandSav !== null ? curSav - vorigMaandSav : null;
+  const vsZelfdeJaar    = vorigeJarenZelfMnd[0]?.sav !== null ? curSav - vorigeJarenZelfMnd[0].sav : null;
+
+  // ── Vaste lasten alert (>€50 verschil vs zelfde maand vorig jaar)
+  const vlCur   = getHoof(cy,   cm, 'Vaste lasten');
+  const vlVorig = getHoof(cy-1, cm, 'Vaste lasten');
+  const vlVers  = vlCur - vlVorig;
+  const toonVLAlert = Math.abs(vlVers) > 50;
+
+  // ── Jaarlijkse ratio's (vaste lasten / gecombineerd inkomen)
+  const jaarVL  = {}, jaarInc = {};
+  PIVOT_YEARS.forEach(jr => {
+    jaarVL[jr]  = 0;
+    jaarInc[jr] = (PIVOT_INCOME[jr] || []).reduce((s,v) => s+v, 0);
+    for (let m = 1; m <= 12; m++) jaarVL[jr] += getHoof(jr, m, 'Vaste lasten');
+  });
+
+  // ── Categorietrends: rolling = lijngrafieken, same-month = staafgrafiek per jaar
+  // Rolling: Boodschappen, Horeca, Verzorging, Shoppen, Dieren, Vervoer
+  // Same-month: Vakantie & Camper, Cadeaus
+  const ROLLING_CATS = [
+    { key:'Boodschappen',         label:'Boodschappen',         emoji:'🛒' },
+    { key:'Horeca & Activiteiten',label:'Horeca & Activiteiten',emoji:'🍽️' },
+    { key:'Verzorging',           label:'Verzorging',           emoji:'💆' },
+    { key:'Shoppen',              label:'Shoppen',              emoji:'🛍️' },
+  ];
+  const SAME_MONTH_CATS = [
+    { key:'Vakantie & Camper', label:'Vakantie & Camper', emoji:'✈️' },
+    { key:'Cadeaus',           label:'Cadeaus',           emoji:'🎁' },
+  ];
+  const ALLE_CHART_CATS = [...ROLLING_CATS, ...SAME_MONTH_CATS];
+
+  // ── Budget maandelijks – gebruik gemiddelde van heel vorig jaar per subcategorie
+  const BUDGET_MND = [
+    // [hoofdcat-label, subcategorie-label, CSV-key, isJaarlijks]
+    { hoof:'Huishoudelijke uitgaven', sub:'Vervoer',               key:'Vervoer'                  },
+    { hoof:'Huishoudelijke uitgaven', sub:'Dieren',                key:'Dieren'                   },
+    { hoof:'Huishoudelijke uitgaven', sub:'Overig huishouden',     key:'Overig huishouden'        },
+    { hoof:'Huishoudelijke uitgaven', sub:'Verzorging',            key:'Verzorging'               },
+    { hoof:'Huishoudelijke uitgaven', sub:'Kinderen',              key:'Kinderen'                 },
+    { hoof:'Huishoudelijke uitgaven', sub:'Shoppen',               key:'Shoppen'                  },
+    { hoof:'Huishoudelijke uitgaven', sub:'Boodschappen',          key:'Boodschappen'             },
+    { hoof:'Huishoudelijke uitgaven', sub:'Persoonlijke overb.',   key:'Persoonlijke overboeking' },
+    { hoof:'Vrijetijdsuitgaven',      sub:'Horeca & Activiteiten', key:'Horeca & Activiteiten'    },
+    { hoof:'Vrijetijdsuitgaven',      sub:'Entertainment abo',     key:'Entertainment abo'        },
+    { hoof:'Vrijetijdsuitgaven',      sub:'Persoonlijke ontwikk.', key:'Persoonlijke ontwikkeling'},
+    { hoof:'Vrijetijdsuitgaven',      sub:'Sporten',               key:'Kinderen',  note:'(kindersport in Kinderen)' },
+    { hoof:'Vrijetijdsuitgaven',      sub:'Cadeaus',               key:'Cadeaus'                  },
+  ];
+  // Budget = gemiddelde per maand van vorig jaar (cy-1)
+  BUDGET_MND.forEach(r => {
+    let totaal = 0;
+    for (let m = 1; m <= 12; m++) totaal += getSub(cy-1, m, r.key);
+    r.budget = Math.abs(Math.round(totaal / 12));
+    r.actuals = Math.abs(Math.round(getSub(cy, cm, r.key)));
+    r.verschil = r.actuals - r.budget;  // positief = meer gespendeerd
+  });
+  // Vervoer: gebruik CSV (geen pivot)
+  const BUDGET_JAAR = [
+    { hoof:'Reserveringsuitgaven', sub:'Incidentele kosten',   key:'Incidentele kosten'    },
+    { hoof:'Reserveringsuitgaven', sub:'Vakantie & Camper',    key:'Vakantie & Camper'     },
+    { hoof:'Reserveringsuitgaven', sub:'Inventaris & onderhoud',key:'Inventaris & onderhoud'},
+    { hoof:'Reserveringsuitgaven', sub:'Giften',               key:'Giften'                },
+    { hoof:'Reserveringsuitgaven', sub:'Zorg',                 key:'Zorg'                  },
+  ];
+  BUDGET_JAAR.forEach(r => {
+    let totVorigJaar = 0;
+    for (let m = 1; m <= 12; m++) totVorigJaar += getSub(cy-1, m, r.key);
+    r.budget = Math.abs(Math.round(totVorigJaar));   // jaarbudget = totaal vorig jaar
+    let ytdActuals = 0;
+    for (let m = 1; m <= cm; m++) ytdActuals += getSub(cy, m, r.key);
+    r.actuals = Math.abs(Math.round(ytdActuals));    // YTD actuals
+    r.verschil = r.actuals - r.budget;
+  });
+
+  // ── Alerts: categorieën boven 12-maands gemiddelde
+  const alerts = [];
+  ALLE_CHART_CATS.forEach(({ key, label }) => {
+    const curVal = Math.abs(getSub(cy, cm, key));
+    if (!curVal) return;
+    let som = 0, cnt = 0;
+    for (let m = 1; m <= 12; m++) {
+      const v = Math.abs(getSub(cy-1, m, key));
+      if (v > 0) { som += v; cnt++; }
+    }
+    if (!cnt) return;
+    const gem  = som / cnt;
+    const diff = curVal - gem;
+    const pct  = gem > 0 ? diff / gem * 100 : 0;
+    if (Math.abs(pct) > 15) alerts.push({ label, key, curVal, gem, diff, pct });
+  });
+  alerts.sort((a,b) => b.pct - a.pct);
+
+  // ════════════════════════════════════
+  // HTML OPBOUWEN
+  // ════════════════════════════════════
+  const savKleur = curSav < 0 ? 'red' : curSavPct >= 15 ? 'green' : curSavPct >= 5 ? 'gold' : 'red';
+  const barKleur = ytdSavPct >= 15 ? 'green' : ytdSavPct >= 5 ? 'gold' : 'red';
+  const barBreedte = Math.min(Math.max(ytdSavPct / SPAARDOEL_PCT / 100 * 100, 2), 100);
+
+  // Verdict banner
+  const verdictGoed = vsZelfdeJaar === null || vsZelfdeJaar >= 0;
+  const verdictHtml = `
+    <div class="verdict ${verdictGoed ? '' : 'warn'}">
+      <div class="verdict-icon">${verdictGoed ? '✅' : '⚠️'}</div>
+      <div class="verdict-text">
+        ${vsVorigeMaand !== null
+          ? `Je hebt <span class="hl">${fmtDiff(vsVorigeMaand)}</span> ${vsVorigeMaand >= 0 ? 'meer' : 'minder'} gespaard dan vorige maand`
+          : 'Eerste maand van het jaar'}${vsZelfdeJaar !== null
+          ? `, en <span class="hl">${fmtDiff(vsZelfdeJaar)}</span> ${vsZelfdeJaar >= 0 ? 'meer' : 'minder'} dan ${MAANDEN[cm-1]} ${cy-1}`
+          : ''}.
+      </div>
+    </div>`;
+
+  // Maandkaartjes (huidig + 3 vorige jaren zelfde maand)
+  const maandKaartjes = [
+    { label:`${MAANDEN[cm-1]} ${cy} (nu)`, sav:curSav, pct:curSavPct, inc:curInc, exp:curExp, hi:true },
+    ...vorigeJarenZelfMnd.map(p => ({
+      label:`${MAANDEN[cm-1]} ${p.jaar}`,
+      sav:p.sav, pct: p.inc > 0 ? p.sav/p.inc*100 : null, inc:p.inc, exp:p.exp, hi:false
+    }))
+  ];
+  const kaartjesHtml = maandKaartjes.map(k => {
+    if (k.sav === null)
+      return `<div class="card"><div class="card-label">${k.label}</div><div style="color:var(--muted);margin-top:8px;">Geen data</div></div>`;
+    const pc  = k.pct !== null ? k.pct.toFixed(1) : '?';
+    const col = k.sav < 0 ? 'red' : k.pct >= 15 ? 'green' : k.pct >= 5 ? 'gold' : 'red';
+    return `<div class="card ${k.hi ? 'highlight' : ''}">
+      <div class="card-label">${k.label}</div>
+      <div class="card-value ${col}">${fmt(k.sav)}</div>
+      <div class="card-sub">${pc}% spaarquote</div>
+      <hr class="divider">
+      <div class="metric-row"><span class="metric-label">Inkomsten</span><span class="metric-val">${k.inc !== null ? fmt(k.inc) : '—'}</span></div>
+      <div class="metric-row"><span class="metric-label">Uitgaven</span><span class="metric-val">${k.exp !== null ? fmt(k.exp) : '—'}</span></div>
+    </div>`;
+  }).join('');
+
+  // VL alert
+  const vlAlertHtml = toonVLAlert ? `
+    <div class="vaste-alert">
+      ⚡ <strong>Afwijking vaste lasten:</strong> ${MAANDEN[cm-1]} ${cy} (${fmt(Math.abs(vlCur))}) vs ${MAANDEN[cm-1]} ${cy-1} (${fmt(Math.abs(vlVorig))}) — verschil <strong>${fmtDiff(vlVers)}</strong>. Controleer welke post is gewijzigd.
+    </div>` : '';
+
+  // Jaarlijkse besparingen
+  const jaarSparingsHtml = PIVOT_YEARS.slice(-4).map(jr => {
+    const totSav = PIVOT_SAVINGS[jr].reduce((s,v) => s+v, 0);
+    const totInc = PIVOT_INCOME[jr].reduce((s,v) => s+v, 0);
+    const pct    = totInc > 0 ? (totSav / totInc * 100).toFixed(1) : '?';
+    const col    = totSav >= 0 && +pct >= 15 ? 'green' : totSav >= 0 ? 'gold' : 'red';
+    return `<div class="metric-row">
+      <span class="metric-label">${jr}${jr === cy ? ' (YTD)' : ' totaal'}</span>
+      <span class="metric-val ${col}">${fmt(totSav)} <small style="color:var(--muted);font-weight:400;">(${pct}%)</small></span>
+    </div>`;
+  }).join('');
+
+  // VL ratio
+  const vlRatioHtml = PIVOT_YEARS.slice(-4).map(jr => {
+    const vl  = Math.abs(jaarVL[jr] ?? 0);
+    const inc = jaarInc[jr] ?? 1;
+    const pct = (vl/inc*100).toFixed(1);
+    const col = +pct > 55 ? 'red' : +pct > 48 ? 'gold' : '';
+    return `<div class="metric-row">
+      <span class="metric-label">${jr}</span>
+      <span class="metric-val ${col}">${pct}%</span>
+    </div>`;
+  }).join('');
+
+  // Categorietrends HTML
+  const trendHtml = ALLE_CHART_CATS.map(({ key, label, emoji }) => {
+    const isRolling = ROLLING_CATS.some(r => r.key === key);
+    const curVal = Math.abs(getSub(cy, cm, key));
+    let gem12 = 0, cnt = 0;
+    for (let m = 1; m <= 12; m++) {
+      const v = Math.abs(getSub(cy-1, m, key));
+      if (v > 0) { gem12 += v; cnt++; }
+    }
+    gem12 = cnt > 0 ? gem12/cnt : 0;
+    const diff    = curVal - gem12;
+    const diffKlr = diff > 15 ? 'red' : diff < -15 ? 'green' : 'gold';
+    const typeLabel = isRolling ? 'Rolling gemiddelde' : 'Zelfde maand vergelijking';
+    return `<div class="chart-card">
+      <div class="chart-title">${emoji} ${label}</div>
+      <div class="chart-sub">${typeLabel} · ${MAANDEN[cm-1]} ${cy}: ${fmt(curVal)} vs gem. ${fmt(gem12)}</div>
+      <canvas id="chart_${key.replace(/[^a-z]/gi,'_')}" width="280" height="70"></canvas>
+      <div style="margin-top:8px;font-size:12px;color:var(--${diffKlr});">${diff > 0 ? '▲' : '▼'} ${fmtDiff(diff)} t.o.v. gemiddelde</div>
+    </div>`;
+  }).join('');
+
+  // Alerts HTML
+  const alertsHtml = (() => {
+    const items = [];
+    const vlRatioLaatste = Math.abs(jaarVL[cy-1] ?? 0) / (jaarInc[cy-1] ?? 1) * 100;
+    if (vlRatioLaatste > 50) items.push(`<div class="alert-item danger"><div class="alert-icon">📉</div><div>
+      <div class="alert-title">Vaste lasten nemen ${vlRatioLaatste.toFixed(0)}% van het inkomen in beslag</div>
+      <div class="alert-desc">De structurele kosten (hypotheek, KDV, verzekeringen) stijgen sneller dan het inkomen. Dit is het grootste risico voor de spaarquote.</div>
+    </div></div>`);
+    alerts.filter(a => a.pct > 20).slice(0,3).forEach(a => items.push(
+      `<div class="alert-item warn"><div class="alert-icon">⚠️</div><div>
+        <div class="alert-title">${a.label}: ${fmt(a.curVal)} — ${a.pct.toFixed(0)}% boven 12-maands gemiddelde</div>
+        <div class="alert-desc">Gemiddeld ${fmt(a.gem)}/maand. Verschil: ${fmtDiff(a.diff)}. Controleer of dit een eenmalige of structurele post is.</div>
+      </div></div>`));
+    alerts.filter(a => a.pct < -15).slice(0,2).forEach(a => items.push(
+      `<div class="alert-item good"><div class="alert-icon">✅</div><div>
+        <div class="alert-title">${a.label}: ${fmt(a.curVal)} — ${Math.abs(a.pct).toFixed(0)}% onder gemiddelde</div>
+        <div class="alert-desc">Positieve afwijking: ${fmtDiff(a.diff)} t.o.v. gemiddelde van ${fmt(a.gem)}.</div>
+      </div></div>`));
+    items.push(`<div class="alert-item info"><div class="alert-icon">📅</div><div>
+      <div class="alert-title">Seizoenspatroon: houd rekening met hogere maanden</div>
+      <div class="alert-desc">Historisch zijn mrt–apr (reserveringen), jun–aug (vakantie) en nov–dec (cadeaus/uiteten) de duurste maanden. Plan vooruit.</div>
+    </div></div>`);
+    return items.join('');
+  })();
+
+  // Budget maandelijks tabel
+  const budgetMndHtml = (() => {
+    const hoofCats = [...new Set(BUDGET_MND.map(r => r.hoof))];
+    let html = '';
+    let totA = 0, totB = 0;
+    BUDGET_MND.forEach(r => { totA += r.actuals; totB += r.budget; });
+    const totVers = totA - totB;
+
+    hoofCats.forEach(hc => {
+      const rijen = BUDGET_MND.filter(r => r.hoof === hc);
+      rijen.forEach((r, i) => {
+        const over  = r.verschil > 10, under = r.verschil < -10;
+        const vKlr  = over ? 'var(--red)' : under ? 'var(--green)' : 'var(--muted)';
+        const bg    = over ? 'rgba(239,83,80,0.08)' : under ? 'rgba(76,175,118,0.08)' : '';
+        const tag   = over ? `<span class="tag red">▲ boven</span>` : under ? `<span class="tag green">▼ onder</span>` : `<span class="tag gold">≈ gelijk</span>`;
+        html += `<tr style="background:${bg};">`;
+        if (i === 0) html += `<td rowspan="${rijen.length}" style="color:var(--muted);font-size:12px;vertical-align:top;padding-top:12px;">${hc}</td>`;
+        html += `<td style="font-weight:500;">${r.sub}${r.note ? ` <small style="color:var(--muted);">${r.note}</small>` : ''}</td>`;
+        html += `<td style="text-align:right;font-weight:600;">${r.actuals > 0 ? fmt(r.actuals) : '<span style="color:var(--muted);">—</span>'}</td>`;
+        html += `<td style="text-align:right;color:var(--muted);">${r.budget > 0 ? fmt(r.budget) : '<span style="color:var(--muted);">—</span>'}</td>`;
+        html += `<td style="text-align:right;color:${vKlr};font-weight:700;">${r.budget === 0 && r.actuals === 0 ? '<span style="color:var(--muted);">—</span>' : (r.verschil >= 0 ? '+' : '−') + fmt(Math.abs(r.verschil)).replace('€\u00a0','€\u00a0')}</td>`;
+        html += `<td style="text-align:center;">${tag}</td></tr>`;
+      });
+      const cA = rijen.reduce((s,r)=>s+r.actuals,0), cB = rijen.reduce((s,r)=>s+r.budget,0);
+      const cV = cA - cB;
+      html += `<tr style="background:var(--surface2);">
+        <td></td><td style="font-size:11px;color:var(--muted);font-style:italic;">Subtotaal</td>
+        <td style="text-align:right;font-weight:700;">${fmt(cA)}</td>
+        <td style="text-align:right;color:var(--muted);">${fmt(cB)}</td>
+        <td style="text-align:right;color:${cV > 10 ? 'var(--red)' : cV < -10 ? 'var(--green)' : 'var(--muted)'};font-weight:700;">${cV >= 0 ? '+' : '−'}${fmt(Math.abs(cV))}</td>
+        <td></td></tr>`;
+    });
+    html += `<tr style="background:var(--surface2);border-top:2px solid var(--border);">
+      <td style="font-weight:700;">TOTAAL</td><td style="font-weight:700;">Variabele maanduitgaven</td>
+      <td style="text-align:right;font-weight:700;font-size:14px;">${fmt(totA)}</td>
+      <td style="text-align:right;font-size:14px;color:var(--muted);">${fmt(totB)}</td>
+      <td style="text-align:right;font-weight:700;font-size:14px;color:${totVers > 20 ? 'var(--red)' : 'var(--green)'};">${totVers >= 0 ? '+' : '−'}${fmt(Math.abs(totVers))}</td>
+      <td style="text-align:center;">${totVers > 20 ? '<span class="tag red">▲ boven</span>' : '<span class="tag green">▼ onder</span>'}</td></tr>`;
+    return html;
+  })();
+
+  // Budget jaarlijks tabel
+  const budgetJaarHtml = (() => {
+    let html = '';
+    BUDGET_JAAR.forEach((r, i) => {
+      const over  = r.verschil > 20, under = r.verschil < -20;
+      const vKlr  = over ? 'var(--red)' : under ? 'var(--green)' : 'var(--muted)';
+      const bg    = over ? 'rgba(239,83,80,0.08)' : under ? 'rgba(76,175,118,0.08)' : '';
+      const tag   = over ? `<span class="tag red">▲ boven</span>` : under ? `<span class="tag green">▼ onder</span>` : `<span class="tag gold">≈ gelijk</span>`;
+      html += `<tr style="background:${bg};">`;
+      if (i === 0) html += `<td rowspan="${BUDGET_JAAR.length}" style="color:var(--muted);font-size:12px;vertical-align:top;padding-top:12px;">Reserveringsuitgaven</td>`;
+      html += `<td style="font-weight:500;">${r.sub}</td>`;
+      html += `<td style="text-align:right;font-weight:600;">${r.actuals > 0 ? fmt(r.actuals) : '<span style="color:var(--muted);">—</span>'}</td>`;
+      html += `<td style="text-align:right;color:var(--muted);">${r.budget > 0 ? fmt(r.budget) : '<span style="color:var(--muted);">—</span>'}</td>`;
+      html += `<td style="text-align:right;color:${vKlr};font-weight:700;">${r.budget === 0 && r.actuals === 0 ? '<span style="color:var(--muted);">—</span>' : (r.verschil >= 0 ? '+' : '−') + fmt(Math.abs(r.verschil))}</td>`;
+      html += `<td style="text-align:center;">${tag}</td></tr>`;
+    });
+    return html;
+  })();
+
+  // Actieplan
+  const actieHtml = (() => {
+    const items = [];
+    alerts.filter(a => a.pct > 20).slice(0,3).forEach((a,i) => items.push(`
+      <div class="action-item" style="border-color:var(--${i===0?'blue':i===1?'purple':'gold'});">
+        <div class="action-title">🎯 Actie ${i+1}: Beheers ${a.label} — nu ${fmt(a.curVal)}, doel max ${fmt(a.gem)}</div>
+        <div class="action-desc">Je geeft ${fmtDiff(a.diff)} meer dan je 12-maands gemiddelde van ${fmt(a.gem)}. Stel een maandlimiet in en verschuif niet-urgente aankopen.</div>
+        <div class="action-impact">💰 Terugkeer naar gemiddelde levert ~${fmt(a.diff * 12)} op jaarbasis</div>
+      </div>`));
+    items.push(`<div class="action-item">
+      <div class="action-title">📋 Controleer kinderopvangtoeslag ${cy}</div>
+      <div class="action-desc">Bij inkomensmutaties in ${cy-1} heb je mogelijk recht op een hogere toeslag. Controleer dit via het Toeslagenportaal.</div>
+      <div class="action-impact">💰 Potentieel: €100–300/maand extra = €1.200–3.600/jaar</div>
+    </div>`);
+    return items.join('');
+  })();
+
+  // ── Benchmarks
+  const benchHtml = [
+    { label:'Boodschappen/maand',     you:Math.abs(getSub(cy,cm,'Boodschappen')),         nibud:490, max:800 },
+    { label:'Horeca/maand',           you:Math.abs(getSub(cy,cm,'Horeca & Activiteiten')), nibud:290, max:600 },
+    { label:'Kleding & Shoppen/maand',you:Math.abs(getSub(cy,cm,'Shoppen')),               nibud:160, max:500 },
+    { label:'Verzorging/maand',       you:Math.abs(getSub(cy,cm,'Verzorging')),            nibud:130, max:300 },
+    { label:'Vervoer/maand',          you:Math.abs(getSub(cy,cm,'Vervoer')),               nibud:390, max:600 },
+  ].map(b => `<div class="bench-row">
+    <div class="bench-label">${b.label}</div>
+    <div class="bench-bar-wrap">
+      <div class="bench-bar-you" style="width:${Math.min(b.you/b.max*100,100).toFixed(1)}%;"></div>
+      <div class="bench-bar-nibud" style="left:${(b.nibud/b.max*100).toFixed(1)}%;"></div>
+    </div>
+    <div class="bench-val" style="color:${b.you > b.nibud*1.1 ? 'var(--red)':'var(--green)'};">${fmt(b.you)}</div>
+    <div class="bench-nibud-val">${fmt(b.nibud)}</div>
+  </div>`).join('');
+
+  // ════════════════════════════════════
+  // PAGINA SCHRIJVEN
+  // ════════════════════════════════════
+  el.innerHTML = `
+    <!-- DEZE MAAND -->
+    <div class="section-label">📅 Deze maand — ${MAANDEN[cm-1]} ${cy}</div>
+    ${verdictHtml}
+    <div class="cards-4" style="margin-top:14px;">${kaartjesHtml}</div>
+    ${vlAlertHtml}
+
+    <!-- JAAR-TOT-DATUM -->
+    <div class="section-label">📊 Jaar-tot-datum — ${cy}</div>
+    <div class="pulse-grid">
+      <div class="pulse-card">
+        <div class="card-label">Spaardoelstelling voortgang</div>
+        <div class="row-between" style="margin-top:6px;">
+          <span style="font-size:13px;">Actuele spaarquote (YTD)</span>
+          <span style="font-weight:700;color:var(--${barKleur});">${ytdSavPct.toFixed(1)}%</span>
+        </div>
+        <div class="progress-bar-wrap"><div class="progress-bar ${barKleur}" style="width:${barBreedte}%;"></div></div>
+        <div class="row-between" style="font-size:11px;color:var(--muted);"><span>0%</span><span>Doel: ${(SPAARDOEL_PCT*100).toFixed(0)}%</span></div>
+        <hr class="divider">
+        <div class="row-between">
+          <div><div class="card-label">Gespaard (YTD)</div><div style="font-size:20px;font-weight:700;color:var(--${barKleur});">${fmt(ytdSav)}</div></div>
+          <div style="text-align:right;"><div class="card-label">Afwijking van doel</div>
+            <div style="font-size:20px;font-weight:700;color:var(--${doelGap>=0?'green':'red'});">${fmtDiff(doelGap)}</div>
+            <div style="font-size:11px;color:var(--muted);">${doelGap >= 0 ? 'boven doel 🎉' : 'onder doel'}</div>
+          </div>
+        </div>
+        <hr class="divider">
+        <div class="row-between">
+          <div><div class="card-label">Geprojecteerd jaarsaldo</div><div style="font-size:18px;font-weight:700;">${fmt(projSav)}</div><div style="font-size:11px;color:var(--muted);">bij huidig tempo (×12)</div></div>
+          <div style="text-align:right;"><div class="card-label">Doel bij ${(SPAARDOEL_PCT*100).toFixed(0)}%</div><div style="font-size:18px;font-weight:700;color:var(--green);">${fmt(targetSav)}</div></div>
+        </div>
+      </div>
+      <div class="pulse-card">
+        <div class="card-label">Burn rate analyse</div>
+        <div style="font-size:20px;font-weight:700;margin:6px 0;">${fmt(curExp)}<span style="font-size:13px;font-weight:400;color:var(--muted);">/maand</span></div>
+        <div style="font-size:12px;color:var(--muted);">Uitgaven ${MAANDEN[cm-1]} ${cy}</div>
+        <hr class="divider">
+        <div class="metric-row"><span class="metric-label">Geprojecteerde jaaruitgaven</span><span class="metric-val">${fmt(projExp)}</span></div>
+        <div class="metric-row"><span class="metric-label">Vaste lasten (maand)</span><span class="metric-val">${fmt(Math.abs(vlCur))}</span></div>
+        <div class="metric-row"><span class="metric-label">Variabele uitgaven</span><span class="metric-val gold">${fmt(Math.abs(curExp) - Math.abs(vlCur))}</span></div>
+        <hr class="divider">
+        <div style="font-size:12px;color:var(--muted);">Bij dit tempo geef je dit jaar <strong style="color:var(--gold);">${fmt(projExp)}</strong> uit.</div>
+      </div>
+      <div class="pulse-card">
+        <div class="card-label">Jaar-op-jaar nettobesparingen</div>
+        <div style="margin-top:8px;">${jaarSparingsHtml}</div>
+        <hr class="divider">
+        <div class="card-label">Vaste lasten / inkomen ratio</div>
+        ${vlRatioHtml}
+      </div>
+    </div>
+
+    <!-- CATEGORIETRENDS -->
+    <div class="section-label">📈 Categorietrends</div>
+    <div class="trend-grid">${trendHtml}</div>
+
+    <!-- SIGNALEN -->
+    <div class="section-label">🚨 Signalen & aandachtspunten</div>
+    <div class="alerts-grid">${alertsHtml}</div>
+
+    <!-- MAANDELIJKSE NETTOBESPARINGEN -->
+    <div class="section-label">📅 Maandelijkse nettobesparingen per jaar</div>
+    <div class="card">
+      <canvas id="cSavingsMonthly" width="1200" height="180"></canvas>
+      <div style="display:flex;gap:16px;margin-top:10px;font-size:11px;">
+        ${PIVOT_YEARS.map(jr => `<span><span style="color:${JAAR_KLEUREN[jr]||'#888'};">█</span> ${jr}</span>`).join('')}
+      </div>
+    </div>
+
+    <!-- BUDGET MAANDELIJKS -->
+    <div class="section-label">📋 Budget maandelijks — ${MAANDEN[cm-1]} ${cy}</div>
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div style="padding:14px 18px 10px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:6px;">
+        <span style="font-size:13px;font-weight:600;">Variabele maanduitgaven</span>
+        <span style="font-size:11px;color:var(--muted);">Budget = gemiddelde per maand van ${cy-1}</span>
+      </div>
+      <table class="data-table">
+        <thead><tr>
+          <th style="width:200px;">Hoofdcategorie</th>
+          <th>Subcategorie</th>
+          <th style="text-align:right;">Actuals ${MAANDEN[cm-1]}&nbsp;'${String(cy).slice(2)}</th>
+          <th style="text-align:right;">Budget (gem. ${cy-1})</th>
+          <th style="text-align:right;">Verschil</th>
+          <th style="text-align:center;">Status</th>
+        </tr></thead>
+        <tbody>${budgetMndHtml}</tbody>
+      </table>
+    </div>
+
+    <!-- BUDGET JAARLIJKS -->
+    <div class="section-label">📋 Budget jaarlijks — ${cy} t/m ${MAANDEN[cm-1]}</div>
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div style="padding:14px 18px 10px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:6px;">
+        <span style="font-size:13px;font-weight:600;">Reserveringsuitgaven (onregelmatig)</span>
+        <span style="font-size:11px;color:var(--muted);">YTD actuals vs. volledig jaar ${cy-1}</span>
+      </div>
+      <table class="data-table">
+        <thead><tr>
+          <th style="width:200px;">Hoofdcategorie</th>
+          <th>Subcategorie</th>
+          <th style="text-align:right;">YTD ${cy}</th>
+          <th style="text-align:right;">Volledig jaar ${cy-1}</th>
+          <th style="text-align:right;">Verschil</th>
+          <th style="text-align:center;">Status</th>
+        </tr></thead>
+        <tbody>${budgetJaarHtml}</tbody>
+      </table>
+    </div>
+
+    <!-- NIBUD BENCHMARKS -->
+    <div class="section-label">🇳🇱 Nibud-vergelijking</div>
+    <div class="cards-2">
+      <div class="card">
+        <div class="card-label">Jullie vs. Nibud 2025 (2 volwassenen + 2 kinderen)</div>
+        ${benchHtml}
+        <div style="font-size:11px;color:var(--muted);margin-top:10px;"><span style="color:var(--blue);">█</span> Jullie &nbsp;&nbsp;<span style="color:var(--gold);">│</span> Nibud-norm</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Inkomen & sparen in context</div>
+        <div class="metric-row"><span class="metric-label">Geprojecteerd jaarinkomen</span><span class="metric-val">${fmt(projInc)}</span></div>
+        <div class="metric-row"><span class="metric-label">Nibud mediaan 2 inkomens (NL)</span><span class="metric-val" style="color:var(--muted);">~€72.000</span></div>
+        <hr class="divider">
+        <div class="metric-row"><span class="metric-label">Spaarquote YTD ${cy}</span><span class="metric-val ${barKleur}">${ytdSavPct.toFixed(1)}%</span></div>
+        <div class="metric-row"><span class="metric-label">Nibud aanbeveling</span><span class="metric-val" style="color:var(--muted);">10–15%</span></div>
+        <div class="metric-row"><span class="metric-label">Jullie spaardoel</span><span class="metric-val green">${(SPAARDOEL_PCT*100).toFixed(0)}%</span></div>
+        <hr class="divider">
+        <div style="font-size:12px;color:var(--muted);">De vaste lasten (hypotheek, KDV, verzekeringen) zijn de voornaamste reden dat de spaarquote onder het doel blijft — niet de dagelijkse uitgaven.</div>
+      </div>
+    </div>
+
+    <!-- ACTIEPLAN -->
+    <div class="section-label">⚡ Actieplan — komende 30 dagen</div>
+    <div class="action-grid">${actieHtml}</div>
+
+    <footer>Familie Financieel Dashboard · Data t/m ${MAANDEN[cm-1]} ${cy} · Nibud-referentie: 2 volwassenen + 2 kinderen · Spaardoel: ≥${(SPAARDOEL_PCT*100).toFixed(0)}% · <a href="https://docs.google.com/spreadsheets/d/${SHEET_ID}" target="_blank" style="color:var(--blue);">Open Google Sheet ↗</a></footer>
+  `;
+
+  // ── GRAFIEKEN TEKENEN
+  requestAnimationFrame(() => {
+    tekenSparingsgrafiek();
+    ROLLING_CATS.forEach(({ key }) => tekenLijnGrafiek('chart_' + key.replace(/[^a-z]/gi,'_'), key, false));
+    SAME_MONTH_CATS.forEach(({ key }) => tekenLijnGrafiek('chart_' + key.replace(/[^a-z]/gi,'_'), key, true));
+  });
+
+  // ── LIJNGRAFIEKEN (rolling of same-month)
+  function tekenLijnGrafiek(canvasId, catKey, sameMonth) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0,0,W,H);
+    const tekenJaren = PIVOT_YEARS.slice(-4);
+    const maxV = Math.max(...tekenJaren.flatMap(jr =>
+      Array.from({length:12},(_,m) => Math.abs(getSub(jr,m+1,catKey)))), 10);
+    const pad = 4;
+    tekenJaren.forEach(jr => {
+      const isCur  = jr === cy;
+      const aantalM = sameMonth ? (isCur ? cm : 12) : (isCur ? cm : 12);
+      const vals   = Array.from({length:aantalM},(_,m) => Math.abs(getSub(jr,m+1,catKey)));
+      if (!vals.length) return;
+      ctx.beginPath();
+      ctx.strokeStyle = JAAR_KLEUREN[jr] || '#888';
+      ctx.lineWidth   = isCur ? 2.5 : 1.5;
+      ctx.globalAlpha = isCur ? 1 : 0.35;
+      ctx.lineJoin    = 'round';
+      vals.forEach((v, i) => {
+        const x = pad + i * (W-pad*2) / 11;
+        const y = H - pad - (v/maxV) * (H-pad*2);
+        i === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+      });
+      ctx.stroke();
+      const li = vals.length - 1;
+      const lx = pad + li * (W-pad*2) / 11;
+      const ly = H - pad - (vals[li]/maxV) * (H-pad*2);
+      ctx.beginPath(); ctx.arc(lx,ly,isCur?4:2,0,Math.PI*2);
+      ctx.fillStyle = JAAR_KLEUREN[jr] || '#888'; ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ── SPARINGSGRAFIEK (staafdiagram alle jaren)
+function tekenSparingsgrafiek() {
+  const canvas = document.getElementById('cSavingsMonthly');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width = (canvas.parentElement.clientWidth || 800) - 36;
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+  const tekenJaren = PIVOT_YEARS;
+  const alleWaarden = tekenJaren.flatMap(jr => PIVOT_SAVINGS[jr]);
+  const maxV = Math.max(...alleWaarden, 100);
+  const minV = Math.min(...alleWaarden, 0);
+  const range = maxV - minV || 1;
+  const pad = {l:44,r:10,t:10,b:20};
+  const cW = W - pad.l - pad.r, cH = H - pad.t - pad.b;
+  const zeroY = pad.t + cH * (1-(0-minV)/range);
+  [maxV, maxV*0.5, 0, minV*0.5, minV].forEach(v => {
+    const y = pad.t + cH * (1-(v-minV)/range);
+    ctx.strokeStyle = v===0 ? '#3a3f6b' : '#1e2234';
+    ctx.lineWidth   = v===0 ? 1.5 : 0.5;
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y); ctx.stroke();
+    ctx.fillStyle='#7b80a8'; ctx.font='9px sans-serif'; ctx.textAlign='right';
+    ctx.fillText((v/1000).toFixed(0)+'k', pad.l-4, y+3);
+  });
+  const colW = cW/12, barW = colW/(tekenJaren.length+0.5);
+  tekenJaren.forEach((jr,yi) => {
+    (PIVOT_SAVINGS[jr]||[]).forEach((val,m) => {
+      const h    = Math.abs(val)/range * cH;
+      const x    = pad.l + m*colW + yi*barW;
+      const yPos = val >= 0 ? zeroY-h : zeroY;
+      ctx.fillStyle   = JAAR_KLEUREN[jr] || '#888';
+      ctx.globalAlpha = jr === Math.max(...tekenJaren) ? 1 : 0.65;
+      ctx.fillRect(x, yPos, barW-1, h);
+    });
+  });
+  ctx.globalAlpha = 1;
+  ctx.fillStyle='#7b80a8'; ctx.font='9px sans-serif'; ctx.textAlign='center';
+  ['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec']
+    .forEach((m,i) => ctx.fillText(m, pad.l+i*colW+colW/2, H-4));
+}
+
+// ════════════════════════════════════════════════════════
+// STARTEN
+// ════════════════════════════════════════════════════════
+loadData();
+</script>
+</body>
+</html>
