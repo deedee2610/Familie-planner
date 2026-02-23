@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Familie Financiën — Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+--bg:#0a0e17;--card:#141824;--card2:#1a1f2e;--border:#1f2842;--border2:#2a3450;
+--gold:#e6b84a;--gold2:#d4a843;--green:#3ecf8e;--red:#e05252;--blue:#4f9cf9;
+--purple:#a78bfa;--text:#e5e9f2;--dim:#8892a8;--faint:#4a5568;--r:14px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Inter,sans-serif;background:var(--bg);color:var(--text);font-size:13px;line-height:1.5;min-height:100vh}
+
+.loading{position:fixed;inset:0;background:rgba(10,14,23,.95);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px}
+.loading.hidden{display:none}
+.spinner{width:48px;height:48px;border:4px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.hdr{display:flex;justify-content:space-between;align-items:center;padding:20px 32px;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:200;background:rgba(10,14,23,.95);backdrop-filter:blur(12px)}
+.hdr-left{display:flex;flex-direction:column;gap:4px}
+.hdr-title{font-family:'Playfair Display',serif;font-size:26px;color:var(--gold);letter-spacing:-0.5px}
+.hdr-sub{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+.hdr-right{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+.tab-group{display:flex;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.tab{padding:7px 16px;font-size:12px;font-weight:500;cursor:pointer;border:none;background:none;color:var(--dim);transition:.15s}
+.tab.active{background:var(--gold);color:#0a0e17;font-weight:600}
+.tab:hover:not(.active){color:var(--text)}
+
+select{background:var(--card);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:500}
+select:hover{border-color:var(--gold)}
+
+.btn{padding:8px 16px;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:.2s}
+.btn-gold{background:var(--gold);color:#0a0e17}
+.btn-gold:hover{background:var(--gold2);transform:translateY(-1px)}
+.btn-outline{background:transparent;border:1px solid var(--border2);color:var(--dim)}
+.btn-outline:hover{border-color:var(--gold);color:var(--text)}
+
+.main{padding:24px 32px;max-width:1800px;margin:0 auto}
+
+.view{display:none}
+.view.active{display:block}
+
+.hero{background:linear-gradient(135deg,rgba(230,184,74,.08),rgba(79,156,249,.05));border:1px solid rgba(230,184,74,.2);border-radius:var(--r);padding:32px;margin-bottom:24px;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:0;right:0;width:300px;height:300px;background:radial-gradient(circle,rgba(230,184,74,.1),transparent);pointer-events:none}
+.hero-title{font-family:'Playfair Display',serif;font-size:32px;color:var(--gold);margin-bottom:8px;font-weight:700;position:relative}
+
+.compare-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:24px}
+.compare-card{background:rgba(20,24,36,.6);border:1px solid var(--border);border-radius:var(--r);padding:24px;transition:.2s;display:flex;flex-direction:column}
+.compare-card:hover{border-color:var(--gold);transform:translateY(-2px)}
+
+.compare-label{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;font-weight:600}
+.compare-year{font-size:13px;color:var(--text);margin-bottom:16px}
+.compare-value{font-family:'Playfair Display',serif;font-size:36px;line-height:1;margin-bottom:16px}
+.compare-value.pos{color:var(--green)}
+.compare-value.neg{color:var(--red)}
+
+.compare-rate{display:flex;gap:6px;align-items:center;margin-bottom:12px}
+.rate-value{font-size:14px;font-weight:700}
+.rate-value.high{color:var(--green)}
+.rate-value.mid{color:var(--gold)}
+.rate-value.low{color:var(--red)}
+.rate-label{font-size:11px;color:var(--faint)}
+
+.compare-meta{font-size:12px;color:var(--faint);line-height:1.8}
+.meta-value{color:var(--dim);font-weight:500}
+
+.compare-delta{font-size:12px;padding:6px 12px;border-radius:6px;display:inline-block;font-weight:600;margin-top:12px}
+.compare-delta.up{background:rgba(62,207,142,.15);color:var(--green)}
+.compare-delta.dn{background:rgba(224,82,82,.15);color:var(--red)}
+
+.section{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:28px;margin-bottom:20px}
+.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.section-title{font-size:16px;font-weight:700;color:var(--text)}
+.section-subtitle{font-size:12px;color:var(--dim);margin-top:4px}
+
+.actions{display:flex;flex-direction:column;gap:20px}
+.action-card{background:var(--card2);border:1px solid var(--border2);border-radius:var(--r);padding:20px;position:relative}
+.action-number{position:absolute;top:16px;left:16px;width:32px;height:32px;border-radius:50%;background:var(--gold);color:#0a0e17;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
+.action-content{margin-left:48px}
+.action-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:8px}
+.action-detail{font-size:12px;color:var(--dim);margin-bottom:6px;line-height:1.6}
+.action-target{background:rgba(230,184,74,.1);border:1px solid rgba(230,184,74,.2);padding:10px 14px;border-radius:6px;margin-top:10px;font-size:12px;color:var(--text)}
+.action-impact{font-weight:700;color:var(--gold)}
+
+.projection{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:16px}
+.proj-card{background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:18px}
+.proj-label{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.7px;margin-bottom:12px;font-weight:600}
+.proj-row{display:flex;justify-content:space-between;margin-bottom:8px;font-size:12px}
+.proj-row-label{color:var(--dim)}
+.proj-row-value{color:var(--text);font-weight:600}
+.proj-highlight{font-size:16px;font-weight:700;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.proj-highlight.pos{color:var(--green)}
+.proj-highlight.neg{color:var(--red)}
+
+.kdv-countdown{background:linear-gradient(135deg,rgba(167,139,250,.1),rgba(79,156,249,.08));border:1px solid rgba(167,139,250,.2);border-radius:var(--r);padding:24px;margin-top:20px}
+.kdv-title{font-size:15px;font-weight:700;color:var(--purple);margin-bottom:16px}
+.kdv-milestone{margin-bottom:16px}
+.kdv-date{font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px}
+.kdv-impact{font-size:12px;color:var(--dim)}
+.kdv-question{background:rgba(20,24,36,.6);padding:14px;border-radius:8px;margin-top:16px;font-size:12px;color:var(--text);border-left:3px solid var(--gold);line-height:1.6}
+
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;position:relative;overflow:hidden;transition:.2s}
+.kpi:hover{border-color:var(--gold);transform:translateY(-2px)}
+.kpi::after{content:"";position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--gold)}
+.kpi.g::after{background:var(--green)}
+.kpi.r::after{background:var(--red)}
+.kpi.b::after{background:var(--blue)}
+.kpi-lbl{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.7px;font-weight:500;margin-bottom:7px}
+.kpi-val{font-family:'Playfair Display',serif;font-size:26px;line-height:1;margin-bottom:5px}
+.kpi-val.pos{color:var(--green)}
+.kpi-val.neg{color:var(--red)}
+.kpi-delta{font-size:10px}
+.kpi-delta.up{color:var(--green)}
+.kpi-delta.dn{color:var(--red)}
+.kpi-delta.neu{color:var(--dim)}
+
+.alert{display:flex;gap:10px;align-items:flex-start;border-radius:var(--r);padding:12px 16px;margin-bottom:18px;border:1px solid}
+.alert svg{flex-shrink:0;margin-top:1px}
+.alert-text{font-size:12px;line-height:1.6}
+.alert-text strong{font-weight:700}
+
+.advisor{background:linear-gradient(135deg,rgba(212,168,67,.07),rgba(79,156,249,.04));border:1px solid rgba(212,168,67,.2);border-radius:var(--r);padding:20px;margin-bottom:14px}
+.adv-title{font-family:'Playfair Display',serif;font-size:18px;color:var(--gold);margin-bottom:14px}
+.insights{display:flex;flex-direction:column;gap:8px}
+.insight{display:flex;gap:10px;align-items:flex-start;padding:11px 13px;border-radius:8px;background:rgba(11,14,22,.6);border-left:3px solid var(--gold)}
+.insight.danger{border-color:var(--red)}
+.insight.ok{border-color:var(--green)}
+.insight.info{border-color:var(--blue)}
+.insight-icon{font-size:15px;flex-shrink:0;margin-top:1px}
+.insight-text{font-size:12px;line-height:1.6;color:var(--dim)}
+.insight-text strong{color:var(--text)}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+canvas{max-height:240px}
+
+@media(max-width:1200px){
+.kpi-row{grid-template-columns:repeat(3,1fr)}
+.grid2,.projection,.compare-grid{grid-template-columns:1fr}
+}
+
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.section,.hero{animation:fadeIn .4s ease both}
+.compare-card{animation:fadeIn .4s ease both}
+.compare-card:nth-child(1){animation-delay:.05s}
+.compare-card:nth-child(2){animation-delay:.1s}
+.compare-card:nth-child(3){animation-delay:.15s}
+</style>
+</head>
+<body>
+
+<div class="loading" id="loading">
+<div class="spinner"></div>
+<div style="color:var(--dim);font-size:14px">Google Sheets laden...</div>
+</div>
+
+<div class="hdr">
+<div class="hdr-left">
+<div class="hdr-title">Familie Financiën — Samen</div>
+<div class="hdr-sub" id="hdr-sub">Dashboard · Data laden...</div>
+</div>
+<div class="hdr-right">
+<div class="tab-group">
+<button class="tab active" onclick="switchView('monthly')">📅 Maand</button>
+<button class="tab" onclick="switchView('yearly')">📊 Jaar</button>
+</div>
+<select id="year-select" onchange="S.year=this.value;render()"></select>
+<button class="btn btn-outline" onclick="loadData()" title="Ververs data">🔄 Ververs</button>
+</div>
+</div>
+
+<div class="main">
+
+<!-- MONTHLY VIEW -->
+<div class="view active" id="monthly-view">
+<div class="hero">
+<div class="hero-title" id="hero-title">December 2025</div>
+<div class="compare-grid" id="compare-grid"></div>
+</div>
+
+<div class="section">
+<div class="section-header">
+<div>
+<div class="section-title">🎯 Acties voor de Komende Maand</div>
+<div class="section-subtitle">Concrete, meetbare stappen op basis van je data</div>
+</div>
+</div>
+<div class="actions" id="actions"></div>
+</div>
+
+<div class="section">
+<div class="section-header">
+<div>
+<div class="section-title">📊 Jaar Projecties</div>
+<div class="section-subtitle">Waar eindig je dit jaar als deze trend doorzet?</div>
+</div>
+</div>
+<div class="projection" id="projection"></div>
+<div class="kdv-countdown" id="kdv-countdown"></div>
+</div>
+</div>
+
+<!-- YEARLY VIEW -->
+<div class="view" id="yearly-view">
+<div class="kpi-row" id="kpi-row"></div>
+
+<div class="alert" id="alert-bar">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e05252" stroke-width="2">
+<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+</svg>
+<div class="alert-text"></div>
+</div>
+
+<div class="advisor">
+<div class="adv-title">🧙 Financieel Advies</div>
+<div class="insights" id="insights"></div>
+</div>
+
+<div class="grid2">
+<div class="section">
+<div class="section-header">
+<div class="section-title">Maandelijkse Cashflow</div>
+</div>
+<canvas id="chart-cf"></canvas>
+</div>
+<div class="section">
+<div class="section-header">
+<div class="section-title">Uitgaven Verdeling</div>
+</div>
+<canvas id="chart-donut"></canvas>
+</div>
+</div>
+</div>
+
+</div>
+
+<script>
+const SHEET_ID="1MS_4az-9_OdeG0PxONFoJxDBR5lmS_JbgaFpS--rCds";
+let allTransactions=[];
+let monthlySummary={};
+let yearlySummary={};
+let S={year:"2025",month:"12",view:"monthly"};
+let CH={};
+
+const MO=["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Aug","Sep","Okt","Nov","Dec"];
+const MO_FULL=["Januari","Februari","Maart","April","Mei","Juni","Juli","Augustus","September","Oktober","November","December"];
+
+const fa=n=>"€"+Math.abs(n||0).toLocaleString("nl-NL",{maximumFractionDigits:0});
+const fp=n=>(n||0).toFixed(1)+"%";
+const fc=(n,showSign=false)=>{
+if(n==null||isNaN(n))return"–";
+const a=Math.abs(n),sign=showSign?(n<0?"-":"+"):"";
+return sign+(a>=1000?"€"+(a/1000).toFixed(1)+"K":"€"+a.toFixed(0));
+};
+
+async function loadData(){
+document.getElementById('loading').classList.remove('hidden');
+try{
+const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Transacties`;
+const r=await fetch(url);
+const t=await r.text();
+const j=t.match(/google\.visualization\.Query\.setResponse\(([\s\S\w]+)\)/)[1];
+const d=JSON.parse(j);
+
+if(!d.table||!d.table.rows)throw new Error("Geen data");
+
+allTransactions=d.table.rows.map(row=>{
+const c=row.c||[];
+return{
+Year:c[7]?.v||null,
+Month:c[8]?.v||null,
+Hoofdcategorie:c[4]?.v||"",
+Subcategorie:c[3]?.v||"",
+Amount:parseFloat(c[11]?.v||0)
+};
+}).filter(r=>r.Year&&r.Month&&r.Hoofdcategorie&&!isNaN(r.Amount));
+
+buildSummaries();
+updateYearSel();
+updateSub();
+
+const latestYear=Math.max(...Object.keys(yearlySummary).map(Number));
+const latestMonthData=monthlySummary[latestYear]||{};
+const latestMonth=Math.max(...Object.keys(latestMonthData).map(Number));
+
+S.year=String(latestYear);
+S.month=String(latestMonth);
+
+render();
+document.getElementById('loading').classList.add('hidden');
+
+}catch(e){
+console.error("Load error:",e);
+document.getElementById('loading').innerHTML=
+`<div style="color:var(--red);max-width:500px;text-align:center;line-height:1.6;padding:40px">
+❌ Fout bij laden<br><br>${e.message}<br><br>
+<button class="btn btn-outline" onclick="location.reload()">Probeer opnieuw</button>
+</div>`;
+}
+}
+
+function buildSummaries(){
+monthlySummary={};
+yearlySummary={};
+
+allTransactions.forEach(t=>{
+const y=t.Year,m=t.Month;
+
+// Monthly
+if(!monthlySummary[y])monthlySummary[y]={};
+if(!monthlySummary[y][m]){
+monthlySummary[y][m]={
+Inkomsten:0,'Vaste lasten':0,'Huishoudelijke uitgaven':0,
+'Reserveringsuitgaven':0,'Vrijetijdsuitgaven':0,total:0,subcats:{}
+};
+}
+monthlySummary[y][m][t.Hoofdcategorie]=(monthlySummary[y][m][t.Hoofdcategorie]||0)+t.Amount;
+monthlySummary[y][m].total+=t.Amount;
+
+if(t.Subcategorie){
+if(!monthlySummary[y][m].subcats[t.Subcategorie])monthlySummary[y][m].subcats[t.Subcategorie]=0;
+monthlySummary[y][m].subcats[t.Subcategorie]+=t.Amount;
+}
+
+// Yearly
+if(!yearlySummary[y]){
+yearlySummary[y]={
+Inkomsten:0,'Vaste lasten':0,'Huishoudelijke uitgaven':0,
+'Reserveringsuitgaven':0,'Vrijetijdsuitgaven':0,total:0
+};
+}
+yearlySummary[y][t.Hoofdcategorie]=(yearlySummary[y][t.Hoofdcategorie]||0)+t.Amount;
+yearlySummary[y].total+=t.Amount;
+});
+
+console.log("Monthly summary:",monthlySummary);
+console.log("Yearly summary:",yearlySummary);
+}
+
+function updateYearSel(){
+const years=Object.keys(yearlySummary).sort().reverse();
+const sel=document.getElementById('year-select');
+sel.innerHTML=years.map(y=>
+`<option value="${y}" ${y===S.year?'selected':''}>${y}</option>`
+).join('');
+}
+
+function updateSub(){
+const years=Object.keys(yearlySummary).sort().reverse();
+if(years.length>0){
+const latest=years[0];
+const latestMonthData=monthlySummary[latest]||{};
+const latestMonth=Math.max(...Object.keys(latestMonthData).map(Number));
+document.getElementById("hdr-sub").textContent=
+`Dashboard · Data t/m ${MO_FULL[latestMonth-1]} ${latest}`.toUpperCase();
+}
+}
+
+function switchView(view){
+S.view=view;
+document.querySelectorAll(".tab").forEach((t,i)=>
+t.classList.toggle("active",["monthly","yearly"][i]===view)
+);
+document.getElementById("monthly-view").classList.toggle("active",view==="monthly");
+document.getElementById("yearly-view").classList.toggle("active",view==="yearly");
+render();
+}
+
+function render(){
+S.view==="monthly"?renderMonthly():renderYearly();
+}
+
+function renderMonthly(){
+const y=+S.year,m=+S.month;
+const curr=monthlySummary[y]?.[m];
+const prev1=monthlySummary[y-1]?.[m];
+const prev2=monthlySummary[y-2]?.[m];
+
+document.getElementById("hero-title").textContent=MO_FULL[m-1]+" "+y;
+
+const cards=[
+{label:"Dit jaar",year:y,data:curr},
+{label:"Vorig jaar",year:y-1,data:prev1,delta:curr?(curr.total-(prev1?.total||0)):null},
+{label:"2 jaar geleden",year:y-2,data:prev2,delta:curr?(curr.total-(prev2?.total||0)):null}
+];
+
+let html="";
+cards.forEach(c=>{
+if(!c.data){
+html+=`<div class="compare-card">
+<div class="compare-label">${c.label}</div>
+<div class="compare-year">${MO_FULL[m-1]} ${c.year}</div>
+<div style="color:var(--faint);padding:40px 0;text-align:center">Geen data</div>
+</div>`;
+return;
+}
+
+const net=c.data.total;
+const inc=c.data.Inkomsten;
+const exp=Math.abs(c.data['Vaste lasten']||0)+Math.abs(c.data['Huishoudelijke uitgaven']||0)+
+Math.abs(c.data['Reserveringsuitgaven']||0)+Math.abs(c.data['Vrijetijdsuitgaven']||0);
+const rate=inc>0?(net/inc*100):0;
+const rc=rate>=15?'high':rate>=5?'mid':'low';
+
+html+=`<div class="compare-card">
+<div class="compare-label">${c.label}</div>
+<div class="compare-year">${MO_FULL[m-1]} ${c.year}</div>
+<div class="compare-value ${net>=0?'pos':'neg'}">${fc(net,false)}</div>
+${c.delta!=null?`<div class="compare-delta ${c.delta>=0?'up':'dn'}">
+${c.delta>=0?'↑':'↓'} ${fa(Math.abs(c.delta))} beter
+</div>`:''}
+<div class="compare-rate">
+<span class="rate-value ${rc}">${fp(rate)}</span>
+<span class="rate-label">spaarquote</span>
+</div>
+<div class="compare-meta">
+Inkomsten: <span class="meta-value">${fa(inc)}</span><br>
+Uitgaven: <span class="meta-value">${fa(exp)}</span>
+</div>
+</div>`;
+});
+
+document.getElementById("compare-grid").innerHTML=html;
+
+renderActions(curr,monthlySummary[y-1]?.[m]);
+renderProjections(curr);
+renderKDV(y,m);
+}
+
+function renderActions(curr,prev){
+if(!curr){document.getElementById("actions").innerHTML="";return;}
+
+let acts=[];
+const subcats=curr.subcats||{};
+const prevSubcats=prev?.subcats||{};
+
+const sorted=Object.entries(subcats).filter(([k])=>k!=="Persoonlijke overboeking")
+.sort((a,b)=>a[1]-b[1]);
+
+if(sorted.length>0){
+const[cat,amt]=sorted[0];
+const pa=prevSubcats[cat]||amt;
+const tgt=Math.abs(pa*.9);
+const sav=Math.abs(amt)-tgt;
+
+acts.push({
+title:`${cat} modereren`,
+detail:`Deze maand was ${fa(Math.abs(amt))}`,
+target:`Target volgende maand: max ${fa(tgt)} (10% reductie)`,
+impact:fa(sav)
+});
+}
+
+const cr=curr.Inkomsten>0?(curr.total/curr.Inkomsten*100):0;
+const gap=15-cr;
+if(gap>0){
+const mg=curr.Inkomsten*gap/100;
+acts.push({
+title:"Momentum naar 15% spaarquote",
+detail:`Huidige maand: ${fp(cr)} · Target: 15.0%`,
+target:`Gap: nog ${fa(mg)}/maand om 15% te halen`,
+impact:fa(mg*12)+"/jaar"
+});
+}
+
+document.getElementById("actions").innerHTML=acts.map((a,i)=>
+`<div class="action-card">
+<div class="action-number">${i+1}</div>
+<div class="action-content">
+<div class="action-title">${a.title}</div>
+<div class="action-detail">${a.detail}</div>
+<div class="action-target">${a.target} · Besparing: <span class="action-impact">${a.impact}</span></div>
+</div>
+</div>`
+).join('');
+}
+
+function renderProjections(curr){
+if(!curr){document.getElementById("projection").innerHTML="";return;}
+
+const s1i=curr.Inkomsten*12;
+const s1e=(Math.abs(curr['Vaste lasten']||0)+Math.abs(curr['Huishoudelijke uitgaven']||0)+
+Math.abs(curr['Reserveringsuitgaven']||0)+Math.abs(curr['Vrijetijdsuitgaven']||0))*12;
+const s1n=s1i-s1e;
+const s1r=s1i>0?(s1n/s1i*100):0;
+
+const s3i=116000,s3e=s3i*.85,s3n=s3i*.15,g=s3e-s1e;
+
+document.getElementById("projection").innerHTML=
+`<div class="proj-card">
+<div class="proj-label">Scenario 1: Herhaal deze maand</div>
+<div class="proj-row"><span class="proj-row-label">Inkomen</span><span class="proj-row-value">${fa(s1i)}</span></div>
+<div class="proj-row"><span class="proj-row-label">Uitgaven</span><span class="proj-row-value">${fa(s1e)}</span></div>
+<div class="proj-highlight ${s1n>=0?'pos':'neg'}">${fc(s1n,false)} netto (${fp(s1r)})</div>
+</div>
+<div class="proj-card" style="border-color:var(--gold)">
+<div class="proj-label">🎯 Target: 15% spaarquote</div>
+<div class="proj-row"><span class="proj-row-label">Inkomen</span><span class="proj-row-value">${fa(s3i)}</span></div>
+<div class="proj-row"><span class="proj-row-label">Uitgaven</span><span class="proj-row-value">${fa(s3e)}</span></div>
+<div class="proj-highlight pos">${fc(s3n,false)} netto (15.0%)</div>
+<div style="font-size:11px;color:var(--gold);margin-top:10px;font-weight:600">
+Gap: ${fa(Math.abs(g))}/jaar minder uitgeven
+</div>
+</div>
+<div class="proj-card">
+<div class="proj-label">Om 15% te halen</div>
+<div style="font-size:12px;line-height:1.7">
+<div style="margin-bottom:8px">Maandelijks ${fa(Math.abs(g/12))} minder uitgeven</div>
+<div style="font-size:11px;color:var(--dim)">
+• Horeca max €250<br>
+• Shoppen max €100<br>
+• Inventaris max €200<br>
+= ~€450/mnd = 48% of gap
+</div>
+</div>
+</div>`;
+}
+
+function renderKDV(y,m){
+const cd=new Date(y,m-1,1),j26=new Date(2026,6,1),s29=new Date(2029,8,1);
+const mj=Math.max(0,Math.round((j26-cd)/(1e3*60*60*24*30)));
+const ms=Math.max(0,Math.round((s29-cd)/(1e3*60*60*24*30)));
+
+if(y<2025||y>2027){document.getElementById("kdv-countdown").innerHTML="";return;}
+
+const sm=(y===2025&&m>=11)||(y===2026&&m<=7);
+let kh=`<div class="kdv-title">👶 Kinderopvang Transitie${sm?' <span style="background:rgba(224,82,82,.2);color:var(--red);font-size:11px;padding:3px 10px;border-radius:6px;font-weight:600">SURVIVAL MODE</span>':''}</div>`;
+
+if(mj>0)kh+=`<div class="kdv-milestone"><div class="kdv-date">Juli 2026 (over ${mj} maanden)</div><div class="kdv-impact">Oudste naar BSO → ~€400/mnd vrijval</div></div>`;
+if(ms>12)kh+=`<div class="kdv-milestone"><div class="kdv-date">Sept 2029 (over ${Math.round(ms/12)} jaar)</div><div class="kdv-impact">Jongste naar basisschool → €15.6K/jaar totale KDV vrijval</div></div>`;
+if(sm)kh+=`<div class="kdv-question">⚠️ Nov 2025 - Juli 2026 = zwaarste periode qua KDV kosten.<br>Focus: Alle positieve netto is een WIN.</div>`;
+
+document.getElementById("kdv-countdown").innerHTML=kh;
+}
+
+function renderYearly(){
+const y=+S.year;
+const d=yearlySummary[y]||{};
+const p=yearlySummary[y-1]||{};
+
+const te=Math.abs(d['Vaste lasten']||0)+Math.abs(d['Huishoudelijke uitgaven']||0)+
+Math.abs(d['Reserveringsuitgaven']||0)+Math.abs(d['Vrijetijdsuitgaven']||0);
+const pe=Math.abs(p['Vaste lasten']||0)+Math.abs(p['Huishoudelijke uitgaven']||0)+
+Math.abs(p['Reserveringsuitgaven']||0)+Math.abs(p['Vrijetijdsuitgaven']||0);
+
+const rate=d.Inkomsten>0?d.total/d.Inkomsten*100:0;
+const pr=p.Inkomsten>0?p.total/p.Inkomsten*100:null;
+const rc=pr!==null?rate-pr:null;
+const hp=Object.keys(p).length>0;
+
+const kpis=[
+{l:"Jaarinkomen",v:fa(d.Inkomsten),vc:d.Inkomsten>=(p.Inkomsten||0)?"pos":"",
+d:hp?(d.Inkomsten>=(p.Inkomsten||0)?"▲ ":"▼ ")+fa(Math.abs(d.Inkomsten-(p.Inkomsten||0)))+" vs "+(y-1):"Eerste jaar",
+dc:d.Inkomsten>=(p.Inkomsten||0)?"up":"dn",t:"g"},
+{l:"Totale uitgaven",v:fa(te),vc:"",
+d:hp?(te<=pe?"▼ ":"▲ ")+fa(Math.abs(te-pe))+" vs "+(y-1):"",
+dc:te<=pe?"up":"dn",t:"r"},
+{l:"Netto resultaat",v:fc(d.total),vc:d.total>=0?"pos":"neg",
+d:d.total>=0?"Positief saldo ✓":"Negatief saldo ✗",
+dc:d.total>=0?"up":"dn",t:d.total>=0?"g":"r"},
+{l:"Spaarquote",v:fp(rate),vc:rate>=10?"pos":rate>=0?"":"neg",
+d:rc!==null?(rc>=0?"▲ ":"▼ ")+Math.abs(rc).toFixed(1)+"% vs "+(y-1):"Eerste jaar",
+dc:rc>=0?"up":"dn",t:rate>=10?"g":rate>=0?"":"r"},
+{l:"Vaste lasten % inkomen",v:d.Inkomsten>0?Math.round(Math.abs(d['Vaste lasten']||0)/d.Inkomsten*100)+"%":"--",vc:"",
+d:fa(Math.abs(d['Vaste lasten']||0))+" per jaar",dc:"neu",t:"b"}
+];
+
+document.getElementById("kpi-row").innerHTML=kpis.map(k=>
+`<div class="kpi ${k.t}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val ${k.vc}">${k.v}</div><div class="kpi-delta ${k.dc}">${k.d}</div></div>`
+).join("");
+
+let col,bg,tc,msg;
+if(rate<0){col="rgba(224,82,82,.3)";bg="rgba(224,82,82,.08)";tc="#f8a0a0";}
+else if(rate<10){col="rgba(212,168,67,.3)";bg="rgba(212,168,67,.06)";tc="#fde68a";}
+else{col="rgba(62,207,142,.3)";bg="rgba(62,207,142,.06)";tc="#86efac";}
+
+if(rate<0)msg=`<strong>Spaarquote ${y}: ${fp(rate)}</strong> — meer uitgegeven dan verdiend.`;
+else if(rate<10)msg=`<strong>Spaarquote ${y}: ${fp(rate)}</strong> — laag, aanbevolen is minimaal 15–20%.`;
+else msg=`<strong>Spaarquote ${y}: ${fp(rate)}</strong> — gezond niveau, goed bezig!`;
+
+const el=document.getElementById("alert-bar");
+el.style.borderColor=col;el.style.background=bg;
+el.querySelector(".alert-text").style.color=tc;
+el.querySelector(".alert-text").innerHTML=msg;
+
+const items=[
+{t:rate<0?"danger":rate<10?"warn":"ok",ic:rate<0?"🔴":rate<10?"🟡":"🟢",
+tx:`<strong>Spaarquote ${fp(rate)}</strong> — ${rate<0?"Meer uitgegeven dan verdiend.":rate<10?"Laag. Met inkomen "+fa(d.Inkomsten)+" is "+fa(Math.round(d.Inkomsten*.15))+" (15%) sparen per jaar haalbaar.":"Goed! Overweeg het surplus te investeren."}`},
+{t:"danger",ic:"🏠",
+tx:`<strong>Wonen + KDV: ~€47.6K/jr</strong> — Hypotheek (~€31.9K) + kinderopvang (~€15.7K). KDV is tijdelijk.`},
+{t:"info",ic:"💡",
+tx:`<strong>Quickwins:</strong> Persoonlijke overboeking (~€12K/jr), Shoppen, Horeca = ~€21K beïnvloedbaar.`},
+{t:"info",ic:"🎯",
+tx:`<strong>Automatiseer sparen:</strong> Zet €${Math.round(d.Inkomsten*.15/12).toLocaleString("nl-NL")}/mnd automatisch opzij.`}
+];
+
+document.getElementById("insights").innerHTML=items.map(i=>
+`<div class="insight ${i.t}"><span class="insight-icon">${i.ic}</span><span class="insight-text">${i.tx}</span></div>`
+).join("");
+
+renderCharts(y);
+}
+
+function renderCharts(y){
+const md=monthlySummary[y]||{};
+const labels=[],inc=[],ex=[],net=[];
+
+for(let m=1;m<=12;m++){
+const d=md[m];
+if(!d)continue;
+labels.push(MO[m-1]);
+inc.push(d.Inkomsten||0);
+const e=Math.abs(d['Vaste lasten']||0)+Math.abs(d['Huishoudelijke uitgaven']||0)+
+Math.abs(d['Reserveringsuitgaven']||0)+Math.abs(d['Vrijetijdsuitgaven']||0);
+ex.push(e);
+net.push((d.Inkomsten||0)-e);
+}
+
+const ctx=document.getElementById("chart-cf").getContext("2d");
+if(CH.cf)CH.cf.destroy();
+CH.cf=new Chart(ctx,{type:"bar",data:{labels,datasets:[
+{label:"Inkomsten",data:inc,backgroundColor:"rgba(62,207,142,.65)",borderRadius:3,order:2},
+{label:"Uitgaven",data:ex,backgroundColor:"rgba(224,82,82,.65)",borderRadius:3,order:2},
+{label:"Netto",data:net,type:"line",borderColor:"#d4a843",borderWidth:2,pointRadius:3,
+pointBackgroundColor:"#d4a843",fill:false,tension:.3,order:1}
+]},options:{responsive:true,maintainAspectRatio:true,interaction:{mode:"index",intersect:false},
+plugins:{legend:{labels:{color:"#7a8ba8",font:{size:10},boxWidth:10,padding:12}},
+tooltip:{backgroundColor:"#161d2e",borderColor:"#1f2d45",borderWidth:1,titleColor:"#dde3f0",
+bodyColor:"#7a8ba8",padding:9}},
+scales:{x:{grid:{color:"rgba(31,45,69,.5)"},ticks:{color:"#7a8ba8",font:{size:10}}},
+y:{grid:{color:"rgba(31,45,69,.5)"},ticks:{color:"#7a8ba8",font:{size:10},
+callback:v=>"€"+(v/1000).toFixed(0)+"K"}}}}});
+
+const d=yearlySummary[y]||{};
+const vals=[Math.abs(d['Vaste lasten']||0),Math.abs(d['Huishoudelijke uitgaven']||0),
+Math.abs(d['Reserveringsuitgaven']||0),Math.abs(d['Vrijetijdsuitgaven']||0)];
+
+const ctx2=document.getElementById("chart-donut").getContext("2d");
+if(CH.donut)CH.donut.destroy();
+CH.donut=new Chart(ctx2,{type:"doughnut",data:{
+labels:["Vaste lasten","Huishoudelijk","Reserveringen","Vrijetijd"],
+datasets:[{data:vals,backgroundColor:["#4f9cf9","#d4a843","#a78bfa","#3ecf8e"],
+borderColor:"#161d2e",borderWidth:3,hoverOffset:6}]},
+options:{responsive:true,maintainAspectRatio:true,cutout:"70%",
+plugins:{legend:{position:"right",labels:{color:"#7a8ba8",font:{size:10},padding:12,boxWidth:10}},
+tooltip:{backgroundColor:"#161d2e",borderColor:"#1f2d45",borderWidth:1,titleColor:"#dde3f0",
+bodyColor:"#7a8ba8",padding:9}}}});
+}
+
+document.addEventListener("DOMContentLoaded",loadData);
+</script>
+</body>
+</html>
